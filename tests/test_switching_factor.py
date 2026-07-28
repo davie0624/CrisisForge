@@ -302,6 +302,12 @@ def test_state_paths_reject_fractional_labels_and_zero_probability_mass() -> Non
             np.zeros((1, 1, 1)),
             np.array([[0.5]]),
         )
+    with pytest.raises(ValueError, match="integer state labels"):
+        mapping.sample_paths(
+            np.zeros((1, 1, 1)),
+            np.array([[1.9]]),
+            rng=np.random.default_rng(1),
+        )
 
     observations, _ = _persistent_two_state_sample(n_observations=250)
     hmm = StickyGaussianHMM(

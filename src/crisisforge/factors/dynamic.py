@@ -519,7 +519,11 @@ class RegimeObservationMapping:
     ) -> np.ndarray:
         """Add state-specific correlated idiosyncratic shocks to asset paths."""
 
-        states = np.asarray(regime_paths, dtype=int)
+        states = _as_integer_state_paths(
+            regime_paths,
+            name="regime_paths",
+            n_states=self.n_states,
+        )
         output = self.expected_paths(factor_paths, states)
         standard_normal = rng.normal(size=output.shape)
         for state in range(self.n_states):

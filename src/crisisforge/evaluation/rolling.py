@@ -291,6 +291,8 @@ def run_stage0_baselines(
             {
                 "model_id": model_id,
                 "forecast_origins": len(group),
+                "expected_origins": len(origins),
+                "complete_sequence": bool(len(group) == len(origins)),
                 "mean_energy_score": float(group["energy_score"].mean()),
                 "mean_variogram_score": float(group["variogram_score"].mean()),
                 "joint_var_es_score": joint_var_es_score(

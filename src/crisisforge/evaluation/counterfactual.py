@@ -291,6 +291,12 @@ def run_counterfactual_evaluation(
         "minimum_misspecified_path_rmse": float(
             misspecified_errors["path_rmse"].min()
         ),
+        "maximum_misspecified_path_rmse": float(
+            misspecified_errors["path_rmse"].max()
+        ),
+        "misspecified_path_rmse_interpretation": (
+            "report the full model/outcome table; min and max are range endpoints"
+        ),
         "known_ground_truth_scope": "semi-synthetic only",
         "real_market_causal_identification": False,
         "controlled_effect_definition": (
