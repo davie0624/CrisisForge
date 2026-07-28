@@ -57,9 +57,6 @@ DEFAULT_DELIVERABLE_PATTERNS = (
     "linkedin/*.md",
     "linkedin/*.png",
     "linkedin/*.svg",
-    "dist/*.tar.gz",
-    "dist/*.whl",
-    "dist/*.zip",
 )
 
 DEFAULT_REQUIRED_DELIVERABLES = (

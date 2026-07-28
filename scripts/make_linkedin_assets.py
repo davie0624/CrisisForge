@@ -93,7 +93,7 @@ def render(output_dir: Path) -> list[Path]:
     ax.text(
         0.065,
         0.575,
-        "Not in the registered validation.",
+        "No—on the held-out validation period.",
         color=AMBER,
         fontsize=20,
         weight="bold",
@@ -123,7 +123,7 @@ def render(output_dir: Path) -> list[Path]:
         y=0.215,
         width=0.25,
         value="5",
-        label="paired intervals favoring\nconventional baselines",
+        label="of 21 paired intervals favored\nconventional baselines",
         face=PALE_AMBER,
     )
     _badge(

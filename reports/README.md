@@ -8,5 +8,6 @@ The report directory contains:
 - `figure_contracts.md`: definitions and claim boundaries for each figure; and
 - `figures/`: reproducibly generated PNG and SVG figures plus a hash manifest.
 
-The online reader is published privately at
-<https://crisisforge-validation-2026.early-boot-9195.chatgpt.site>.
+The PDF and Markdown files above are the public, versioned reader deliverables.
+An access-controlled interactive rendering may exist for private review, but it is
+not a public project dependency.

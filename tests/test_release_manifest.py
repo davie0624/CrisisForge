@@ -14,6 +14,7 @@ assert _SPEC is not None and _SPEC.loader is not None
 _MODULE = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(_MODULE)
 
+DEFAULT_DELIVERABLE_PATTERNS = _MODULE.DEFAULT_DELIVERABLE_PATTERNS
 QA_SCHEMA_VERSION = _MODULE.QA_SCHEMA_VERSION
 build_release_manifest = _MODULE.build_release_manifest
 sha256_file = _MODULE.sha256_file
@@ -189,6 +190,15 @@ def _build(tmp_path: Path, fixture: dict[str, str], **kwargs: object) -> dict[st
         ],
         hash_bindings={},
         **kwargs,
+    )
+
+
+def test_default_deliverables_exclude_archives_and_distribution_packages() -> None:
+    forbidden_suffixes = (".tar", ".tar.gz", ".tgz", ".whl", ".zip")
+    assert all(not pattern.startswith("dist/") for pattern in DEFAULT_DELIVERABLE_PATTERNS)
+    assert all(
+        not pattern.casefold().endswith(forbidden_suffixes)
+        for pattern in DEFAULT_DELIVERABLE_PATTERNS
     )
 
 

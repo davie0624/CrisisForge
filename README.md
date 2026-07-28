@@ -44,12 +44,13 @@ Stage 6 v2 was rerun separately from clean implementation commit
 The current evidence does **not** show that the complex generator beats simpler
 benchmarks. Preserving that negative result is part of the research design.
 
-The validated reader report is also published as a
-[private interactive report](https://crisisforge-validation-2026.early-boot-9195.chatgpt.site).
+The complete reader-facing evidence is available in the
+[PDF research report](reports/crisisforge_research_report.pdf) and its
+[Markdown source](reports/crisisforge_research_report.md).
 
 ## Results at a glance
 
-| Evidence | Registered validation result | Interpretation |
+| Evidence | Frozen validation result | Interpretation |
 |---|---:|---|
 | Phase 0 data | 6,465 complete rows; 15 return targets; 10 context variables; 23/23 gates passed | Public retrospective research panel; one source-freshness warning |
 | Best Stage 0 energy score | 0.08974, filtered historical EWMA | Lowest validation energy score among seven baselines |
@@ -60,7 +61,7 @@ The validated reader report is also published as a
 | Stage 2 diffusion pilot | 4 reporting origins; tail-weighted energy 0.09168 versus base 0.09205 | Engineering/leakage-control pilot only; no superiority claim permitted |
 | Stage 5 realized ES | Historical CVaR 0.01767; Stage 1 CVaR 0.02074 | Historical scenarios have lower observed validation tail loss; no paired interval was computed |
 | Stage 5 maximum drawdown | Historical CVaR 0.03411; Stage 1 CVaR 0.04782 | Historical CVaR has the smaller observed validation drawdown |
-| Wasserstein-DRO sensitivity | Radii 0.0001–0.001 produced nearly unchanged Stage 1 decisions | No final radius selected; little decision benefit in the registered grid |
+| Wasserstein-DRO sensitivity | Radii 0.0001–0.001 produced nearly unchanged Stage 1 decisions | No final radius selected; little decision benefit in the pre-specified sensitivity grid |
 | Stage 6 counterfactual | Oracle error \(4.08\times10^{-17}\); misspecified path RMSE 0.0731–0.2782 | Implementation recovered known semi-synthetic truth and exposed specification sensitivity |
 
 The Stage 0 and Stage 1 comparison combines different estimation policies: Stage 0
@@ -106,15 +107,17 @@ uv run pytest
 uv run ruff check src tests scripts
 ```
 
-Rebuild Phase 0 from the retained, integrity-checked public snapshots:
+On a fresh public clone, download new snapshots from the original publishers and
+build Phase 0:
 
 ```bash
-uv run crisisforge-phase0 --offline
+uv run crisisforge-phase0 --refresh
 ```
 
-Use `uv run crisisforge-phase0 --refresh` only when intentionally downloading new
-source snapshots. A refreshed panel can change the manifest and is a new evidence
-release.
+`uv run crisisforge-phase0 --offline` is only for a local evidence checkout that
+already contains the ignored snapshots. Raw and row-level derived data are not
+redistributed in this repository. A refreshed panel can change the manifest and is
+a new evidence release.
 
 Run the validation pipeline in dependency order:
 
@@ -167,6 +170,28 @@ original publishers. A publication-grade applied extension should substitute
 licensed point-in-time total returns from CRSP/WRDS, Bloomberg, LSEG, FactSet, or
 an equivalent archive.
 
+### Data rights and attribution
+
+CrisisForge publishes reproducible code, documentation, and non-substitutive
+research outputs. It does **not** publish downloaded or normalized row-level source
+data. The project's software license excludes all third-party datasets and provider
+names, marks, seals, and logos.
+
+- **Kenneth R. French 12 Industry Portfolios:** copyrighted by Eugene F. Fama and
+  Kenneth R. French; no open redistribution license was located, so users download
+  the file directly from the official Data Library.
+- **U.S. Treasury yield curve:** official public data listed under CC0 1.0;
+  CrisisForge's bond-return proxies are independently derived and are not official
+  Treasury total-return series.
+- **New York Fed EFFR:** use is subject to the New York Fed Terms of Use and
+  required reference-rate notice; EFFR content is not covered by the CrisisForge
+  software license.
+- **OFR Financial Stress Index:** OFR requests credit; only OFR-published index
+  outputs are used, while the underlying third-party market series are not
+  redistributed.
+
+See [NOTICE.md](NOTICE.md) for exact source links, notices, and limitations.
+
 ## Repository guide
 
 - [Research proposal](docs/research_proposal.md)
@@ -188,7 +213,8 @@ code, configuration, tests, documentation, and the experiment registry are
 versioned. Run receipts and cryptographic hashes make local evidence auditable.
 
 After committing a release candidate, run the fail-closed release checks and create
-the self-contained archive:
+the public source archive. The archive intentionally excludes raw data, row-level
+derived data, model checkpoints, and local experiment artifacts:
 
 ```bash
 uv run python scripts/run_release_qa.py

@@ -42,8 +42,15 @@ and more about asking:
 **What evidence would make us trust a generated crisis scenario enough to act on
 it?**
 
-#QuantFinance #RiskManagement #GenerativeAI #MachineLearning #FinancialEngineering
-#TimeSeries #PortfolioOptimization #Research
+Code, report, tests, and research log:
+<https://github.com/davie0624/CrisisForge>
+
+Independent research project; not peer-reviewed and not investment advice.
+
+What would you require before using generated stress scenarios in a real risk
+decision?
+
+#QuantFinance #RiskManagement #GenerativeAI #FinancialEngineering #Research
 
 ## 中文版本
 
@@ -76,5 +83,11 @@ Diffusion pipeline 確實已完整跑通，但目前只有四個 reporting origi
 
 **我們需要什麼證據，才應該相信一個生成式危機情境並據此做決策？**
 
-#QuantFinance #RiskManagement #GenerativeAI #MachineLearning #FinancialEngineering
-#TimeSeries #PortfolioOptimization #Research
+完整程式、報告、測試與研究紀錄：
+<https://github.com/davie0624/CrisisForge>
+
+這是一份獨立研究專案，尚未經過同儕審查，也不構成投資建議。
+
+如果要把生成式壓力情境用在真實風險決策中，你會要求哪些證據？
+
+#QuantFinance #RiskManagement #GenerativeAI #FinancialEngineering #Research

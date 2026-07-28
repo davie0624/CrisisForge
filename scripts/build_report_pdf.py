@@ -920,7 +920,7 @@ def build_pdf(source: Path, output: Path) -> None:
         topMargin=top_margin,
         bottomMargin=bottom_margin,
         title="CrisisForge: Decision-Focused Market Simulation under Regime Shifts",
-        author="CrisisForge Research Project",
+        author="康智雄",
         subject="Public-core validation technical research report v0.3.0",
         creator="CrisisForge Python report builder",
     )

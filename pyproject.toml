@@ -9,7 +9,7 @@ description = "Decision-focused market simulation under regime shifts"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 license = {text = "MIT"}
-authors = [{name = "CrisisForge Research Project"}]
+authors = [{name = "康智雄"}]
 dependencies = [
   "numpy>=2.0",
   "pandas>=2.2",

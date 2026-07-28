@@ -1,5 +1,8 @@
 .DS_Store
-.env
+.RData
+.Rhistory
+.env*
+!.env.example
 .venv/
 __pycache__/
 *.py[cod]
@@ -31,3 +34,5 @@ checkpoints/
 mlruns/
 wandb/
 dist/
+*.key
+*.pem
