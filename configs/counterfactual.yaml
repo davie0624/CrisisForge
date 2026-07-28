@@ -1,0 +1,55 @@
+experiment:
+  id: regime_switching_semisynthetic_scm_v1
+  random_seed: 20260728
+  num_paths: 5000
+  horizon: 60
+
+scope:
+  validation_environment: semi_synthetic_known_ground_truth
+  real_data_interpretation: model_based_structural_intervention_only
+  prohibited_claim: definitive_real_world_causality
+  regime_process: exogenous_markov_chain
+
+graph:
+  within_time_order:
+    - policy
+    - yield
+    - liquidity
+    - credit
+    - equity
+    - volatility
+  lagged_feedback:
+    - "equity[t-1] -> policy[t]"
+  rationale: >-
+    Time unrolling retains financial feedback while preventing a directed cycle
+    inside any time slice.
+
+regimes:
+  names: [normal, credit_liquidity_crisis, inflation_tightening]
+  initial_probabilities: [0.80, 0.10, 0.10]
+  transition_matrix:
+    - [0.965, 0.020, 0.015]
+    - [0.055, 0.925, 0.020]
+    - [0.045, 0.020, 0.935]
+
+interventions:
+  policy_shock:
+    variable: policy
+    operation: do
+    start: 0
+    duration: 5
+    value: 0.50
+  controlled_effect:
+    description: >-
+      Repeat the policy intervention while fixing selected yield, liquidity, or
+      credit mediators to explicit paths. Missing assignments remain structural.
+
+evaluation:
+  pairing: common_exogenous_innovations
+  workflow: abduction_action_prediction
+  outcomes: [equity, volatility, credit]
+  confidence_level: 0.95
+  metrics:
+    - terminal_ate_error
+    - mean_path_rmse
+    - tail_effect_error

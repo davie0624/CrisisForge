@@ -1,0 +1,61 @@
+stage: 1
+model_name: switching_dynamic_factor_baseline
+estimator_scope: MAP/empirical-Bayes multi-stage baseline
+
+data:
+  # "simple" leaves Phase 0 simple returns unchanged. "log1p" applies the
+  # conversion inside each training fold and requires every return > -1.
+  # log1p guarantees generated gross returns remain non-negative after the
+  # observation mapping; the simple-space Gaussian option is retained only as
+  # an explicit sensitivity model and fails fast if it implies returns < -1.
+  return_transform: log1p
+  center_and_scale: train_fold_only
+
+factor_model:
+  n_factors: 4
+  estimator: svd_pca
+  deterministic_sign_orientation: true
+  scale_floor: 1.0e-8
+
+regime_model:
+  estimator: gaussian_hmm_map_em
+  n_states: 4
+  n_initializations: 12
+  maximum_iterations: 300
+  tolerance: 1.0e-6
+  transition_pseudocount: 0.5
+  sticky_pseudocount: 8.0
+  minimum_covariance_eigenvalue: 1.0e-6
+  minimum_state_weight: 1.0e-3
+  random_seed: 1729
+  training_state_probabilities: smoothed
+  forecast_initial_state_probabilities: filtered
+
+factor_dynamics:
+  estimator: regime_specific_var_1
+  ridge: 1.0e-4
+  covariance_floor: 1.0e-8
+  stabilize_for_simulation: true
+  maximum_spectral_radius: 0.995
+
+observation_mapping:
+  equation: "r_t = alpha[z_t] + B[z_t] f_t + D[z_t] epsilon_t"
+  ridge: 1.0e-4
+  residual_correlation_shrinkage: 0.20
+  idiosyncratic_scale_floor: 1.0e-6
+  simulation_rule: draw_complete_regime_path
+  forbidden_rule: average_regime_specific_B_D_R
+
+diagnostics:
+  minimum_state_occupancy_warning: 0.03
+  report_spectral_radius: true
+  report_reconstruction_error: true
+  report_residual_correlation_eigenvalues: true
+
+claims_boundary:
+  full_bayesian_posterior: false
+  mcmc: false
+  causal_regime_labels: false
+  note: >
+    Regime numbers are statistically identified latent states ordered by their
+    first factor mean. Economic names require separate ex-post interpretation.

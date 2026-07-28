@@ -1,0 +1,31 @@
+.DS_Store
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Downloaded data and generated artifacts are reproducible but not versioned.
+data/raw/**
+data/interim/**
+data/processed/**
+# Interrupted atomic-refresh transactions may leave sibling trees behind.
+# Ignore them before any local Git repository exists so raw/licensed data can
+# never become an accidental add candidate after a kill -9.
+data/.raw-staging-*/
+data/.raw-backup-*/
+data/.raw-failed-*/
+data/.interim-backup-*/
+data/.processed-backup-*/
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+artifacts/**
+!artifacts/.gitkeep
+
+# Model checkpoints and experiment trackers.
+checkpoints/
+mlruns/
+wandb/

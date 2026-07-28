@@ -1,0 +1,89 @@
+experiment:
+  id: stage2_public_core_pilot_v1
+  label: public_core_pilot
+  pilot: true
+  evaluation_split: validation
+  test_set_policy: sealed
+  random_seed: 20260728
+  claims_boundary: >-
+    This deliberately small public-data pilot validates the leakage controls and
+    end-to-end engineering path. It is not powered to establish model
+    superiority and must not be reported as doing so.
+
+windows:
+  history_length: 60
+  horizon: 20
+  training_origin_stride: 5
+  validation_origin_stride: 20
+  validation_tuning_fraction: 0.50
+  expected_macro_feature_count: 10
+  target_definition: future_factor_path_t_plus_1_through_t_plus_H
+  context_definition: factor_and_macro_history_through_origin_t_only
+  regime_definition: filtered_soft_probability_at_origin_t
+
+model:
+  # These settings intentionally override only the neural capacity registered
+  # in stage2_diffusion.yaml. The Stage 1 factor/HMM/mapping configuration is
+  # loaded unchanged from configs/stage1_model.yaml.
+  diffusion_steps: 12
+  hidden_channels: 32
+  time_embedding_dim: 32
+  residual_blocks: 2
+  beta_start: 1.0e-4
+  beta_end: 2.0e-2
+  standardized_factor_clip: 8.0
+
+training:
+  device: cpu
+  torch_num_threads: 2
+  batch_size: 64
+  base_epochs: 3
+  tail_fine_tune_epochs: 2
+  learning_rate: 2.0e-4
+  weight_decay: 1.0e-4
+  gradient_clip_norm: 1.0
+  validation_metric: deterministic_denoising_loss
+  checkpoint_selection: validation_tuning_only
+  dataloader_workers: 0
+
+tail_fine_tuning:
+  enabled: true
+  direction: two_sided
+  severity_quantile: 0.90
+  importance_strength: 3.0
+  maximum_weight: 8.0
+
+evaluation:
+  origin_stride: 60
+  maximum_origins: 4
+  num_scenarios: 64
+  variants: [base, tail_weighted]
+  use_validation_after_tuning_segment_only: true
+
+risk:
+  confidence_level: 0.95
+  co_crash_marginal_quantile: 0.05
+  co_crash_minimum_fraction: 0.50
+
+paths:
+  model_matrix: data/processed/model_matrix.parquet
+  phase0_manifest: artifacts/phase0/manifest.json
+  stage1_model_config: configs/stage1_model.yaml
+  stage2_model_config: configs/stage2_diffusion.yaml
+  output: artifacts/stage2_public_core_pilot
+
+known_limitations:
+  - >-
+    Future HMM regimes are drawn independently of the diffusion factor path
+    conditional on the same origin belief; their joint dynamic consistency is
+    therefore not guaranteed.
+  - >-
+    Stage 1 is MAP/empirical-Bayes and does not propagate a full Bayesian
+    parameter posterior through factor, regime, or observation parameters.
+  - >-
+    Checkpoint tuning and reporting both remain inside the pre-2020 validation
+    era, using disjoint early and late validation segments; the test split is
+    sealed.
+  - >-
+    The small number of epochs, diffusion steps, scenarios, and reported
+    origins makes this an engineering pilot rather than a model-ranking study.

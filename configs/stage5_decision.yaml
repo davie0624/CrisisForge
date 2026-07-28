@@ -1,0 +1,40 @@
+experiment:
+  id: stage5_validation_portfolio_decisions_v1
+  evaluation_split: validation
+  radius_grid_role: exploratory_validation_only
+
+forecast:
+  horizon: 20
+  origin_stride: 20
+  historical_lookback_observations: 1500
+  minimum_historical_scenarios: 1000
+
+portfolio:
+  confidence_level: 0.95
+  maximum_position: 0.20
+  l1_turnover_limit: 0.50
+  transaction_cost_bps: 10.0
+  initial_weights: equal_weight
+  previous_weights_policy: post_return_drift
+
+wasserstein:
+  transport_ground_norm: l1
+  dual_portfolio_norm: linfinity
+  radius_grid:
+    - 0.00010
+    - 0.00025
+    - 0.00050
+    - 0.00100
+
+paths:
+  model_matrix: data/processed/model_matrix.parquet
+  stage1_scenario_archive: artifacts/stage1_switching_factor/cumulative_scenarios.npz
+  output: artifacts/stage5_decisions
+
+claims_boundary:
+  test_set_opened: false
+  select_final_radius: false
+  note: >-
+    Every Wasserstein radius is reported as a separate validation-only
+    sensitivity strategy. No radius is selected or described as final until a
+    separately preregistered test-stage protocol is authorized.

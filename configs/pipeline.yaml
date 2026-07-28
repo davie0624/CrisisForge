@@ -1,0 +1,39 @@
+project:
+  name: CrisisForge
+  timezone: America/New_York
+  decision_timestamp: after_close
+  random_seed: 20260728
+
+sample:
+  start_date: "2000-01-03"
+  end_date: null
+
+splits:
+  train_end: "2013-12-31"
+  validation_end: "2019-12-31"
+  # The test set starts in 2020 so the rapid COVID crash and 2022 inflation shock
+  # are not used to estimate the initial model.
+
+quality:
+  minimum_asset_coverage: 0.97
+  minimum_relative_target_calendar_density: 0.90
+  minimum_model_context_source_coverage: 0.97
+  minimum_validation_source_coverage: 0.97
+  minimum_model_index_relative_density: 0.97
+  maximum_daily_return_abs: 0.40
+  maximum_target_source_internal_gap_calendar_days: 10
+  maximum_model_context_source_internal_gap_calendar_days: 10
+  maximum_validation_source_internal_gap_calendar_days: 10
+  maximum_model_index_internal_gap_calendar_days: 10
+  maximum_common_interval_calendar_days: 10
+  maximum_interval_source_observation_count_gap: 5
+  maximum_target_source_start_delay_calendar_days: 10
+  fail_on_duplicate_dates: true
+  warning_after_source_staleness_calendar_days: 45
+  fail_after_source_staleness_calendar_days: 180
+
+paths:
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+  artifacts: artifacts/phase0

@@ -1,0 +1,2 @@
+experiment_id,stage,status,started_at_utc,completed_at_utc,data_manifest_sha256,git_commit,config_path,summary_path
+stage0_public_baselines_v1,stage0,completed,,2026-07-28T00:26:21.039251+00:00,5991a8f204c9f40d9116e45531fd76ca13abfd0f32f5439aa1e5ba62e594791c,,configs/stage0_baselines.yaml,artifacts/stage0_baselines/summary.csv

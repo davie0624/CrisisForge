@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+title: "CrisisForge: Decision-Focused Market Simulation under Regime Shifts"
+message: "If you use this research code, please cite this repository and the method papers listed in docs/literature_review.md."
+type: software
+version: 0.1.0
+date-released: 2026-07-28
+license: MIT
+

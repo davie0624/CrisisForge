@@ -1,0 +1,43 @@
+experiment:
+  id: stage0_public_baselines_v1
+  evaluation_split: validation
+  random_seed: 20260728
+
+forecast:
+  horizon: 20
+  origin_stride: 20
+  training_lookback: 1500
+  num_scenarios: 1000
+
+risk:
+  confidence_level: 0.95
+  co_crash_marginal_quantile: 0.05
+  co_crash_minimum_fraction: 0.3333333333333333
+
+models:
+  - id: historical_iid
+    kind: historical
+  - id: moving_block_20
+    kind: moving_block
+    block_length: 20
+  - id: filtered_historical_ewma
+    kind: filtered_historical
+    decay: 0.94
+  - id: gaussian_shrinkage
+    kind: gaussian
+    shrinkage: 0.05
+  - id: student_t_elliptical
+    kind: student_t
+    shrinkage: 0.05
+  - id: student_t_copula
+    kind: student_t_copula
+    degrees_of_freedom: 6.0
+    shrinkage: 0.05
+  - id: var1_residual_bootstrap
+    kind: var_residual_bootstrap
+    ridge: 0.000001
+
+paths:
+  model_matrix: data/processed/model_matrix.parquet
+  phase0_manifest: artifacts/phase0/manifest.json
+  output: artifacts/stage0_baselines

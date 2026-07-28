@@ -1,0 +1,30 @@
+experiment:
+  id: stage1_switching_factor_validation_v1
+  evaluation_split: validation
+  estimation_policy: fixed_train_parameters_sequential_filtering
+  random_seed: 20260728
+
+forecast:
+  horizon: 20
+  origin_stride: 20
+  num_scenarios: 1000
+
+risk:
+  confidence_level: 0.95
+  co_crash_marginal_quantile: 0.05
+  co_crash_minimum_fraction: 0.50
+
+paths:
+  model_matrix: data/processed/model_matrix.parquet
+  phase0_manifest: artifacts/phase0/manifest.json
+  model_config: configs/stage1_model.yaml
+  output: artifacts/stage1_switching_factor
+
+claims_boundary:
+  test_set_opened: false
+  estimator: MAP/empirical-Bayes multi-stage baseline
+  note: >-
+    Parameters are fitted once on the chronological training split. Validation
+    observations available through each forecast origin update only the filtered
+    state belief and current factor; they do not refit PCA, HMM, VAR, or mapping
+    parameters. State numbers have no automatic economic names.

@@ -1,0 +1,183 @@
+panel:
+  id: research_core
+  description: >-
+    Retrospective public research panel: 12 value-weighted U.S. industry
+    portfolios plus three transparent duration-convexity Treasury return proxies.
+    It is not described as an investable ETF portfolio.
+  licensed_applied_replacement: >-
+    Replace the 15 targets with adjusted ETF/security total returns from
+    CRSP/WRDS, Bloomberg, LSEG, FactSet, or another licensed archive before making
+    investability or live-trading claims.
+
+target_return_sources:
+  - id: french_12_industries
+    provider: french_research_zip
+    name: "Kenneth French 12 Industry Portfolios — Value Weighted Daily Returns"
+    page_url: "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html"
+    download_url: "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/12_Industry_Portfolios_daily_CSV.zip"
+    native_frequency: daily
+    units: decimal_simple_return
+    redistribution: "Downloader and hashes only; do not commit or redistribute raw data."
+    columns:
+      - {source_column: NoDur, asset: industry_nondurables, name: "Consumer Nondurables", asset_class: industry_portfolio}
+      - {source_column: Durbl, asset: industry_durables, name: "Consumer Durables", asset_class: industry_portfolio}
+      - {source_column: Manuf, asset: industry_manufacturing, name: "Manufacturing", asset_class: industry_portfolio}
+      - {source_column: Enrgy, asset: industry_energy, name: "Energy", asset_class: industry_portfolio}
+      - {source_column: Chems, asset: industry_chemicals, name: "Chemicals", asset_class: industry_portfolio}
+      - {source_column: BusEq, asset: industry_business_equipment, name: "Business Equipment", asset_class: industry_portfolio}
+      - {source_column: Telcm, asset: industry_telecom, name: "Telecommunications", asset_class: industry_portfolio}
+      - {source_column: Utils, asset: industry_utilities, name: "Utilities", asset_class: industry_portfolio}
+      - {source_column: Shops, asset: industry_shops, name: "Wholesale, Retail, and Services", asset_class: industry_portfolio}
+      - {source_column: Hlth, asset: industry_health, name: "Healthcare", asset_class: industry_portfolio}
+      - {source_column: Money, asset: industry_finance, name: "Finance", asset_class: industry_portfolio}
+      - {source_column: Other, asset: industry_other, name: "Other", asset_class: industry_portfolio}
+
+  - id: treasury_duration_proxies
+    provider: derived_treasury_return
+    source_id: us_treasury_yield_curve
+    name: "Synthetic constant-maturity Treasury return proxies"
+    native_frequency: daily
+    units: approximate_decimal_simple_return
+    methodology: >-
+      Duration-convexity approximation using official par yields. These are
+      transparent research proxies, not observed bond total returns.
+    columns:
+      - {source_column: BC_2YEAR, asset: treasury_proxy_2y, name: "2-Year Treasury Return Proxy", asset_class: synthetic_government_bond, maturity_years: 2}
+      - {source_column: BC_5YEAR, asset: treasury_proxy_5y, name: "5-Year Treasury Return Proxy", asset_class: synthetic_government_bond, maturity_years: 5}
+      - {source_column: BC_10YEAR, asset: treasury_proxy_10y, name: "10-Year Treasury Return Proxy", asset_class: synthetic_government_bond, maturity_years: 10}
+
+# Phase 0 intentionally downloads market context from the original publishing
+# institutions rather than through FRED. FRED's current Terms of Use prohibit using
+# FRED Services/Content to develop or train ML, deep-learning, or generative-AI
+# software. See docs/research_log/0001_phase0.md.
+macro_sources:
+  - id: us_treasury_yield_curve
+    provider: treasury_xml
+    name: "U.S. Treasury Daily Par Yield Curve Rates"
+    page_url: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView"
+    year_url_template: >-
+      https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?data=daily_treasury_yield_curve&field_tdr_date_value={year}
+    native_frequency: daily
+    availability_lag_model_sessions: 1
+    max_staleness_calendar_days: 5
+    columns:
+      - source_column: BC_2YEAR
+        feature: treasury_2y_level
+        units: percent
+        transform: level
+        role: rates
+      - source_column: BC_5YEAR
+        feature: treasury_5y_level
+        units: percent
+        transform: level
+        role: rates
+      - source_column: BC_10YEAR
+        feature: treasury_10y_level
+        units: percent
+        transform: level
+        role: rates
+
+  - id: nyfed_effr
+    provider: nyfed_effr_json
+    name: "Effective Federal Funds Rate"
+    page_url: "https://www.newyorkfed.org/markets/reference-rates/effr"
+    download_url: "https://markets.newyorkfed.org/api/rates/unsecured/effr/search.json"
+    native_frequency: business_daily
+    availability_lag_model_sessions: 1
+    max_staleness_calendar_days: 5
+    columns:
+      - source_column: percentRate
+        feature: effective_fed_funds
+        units: percent
+        transform: level
+        role: policy
+
+  - id: ofr_fsi
+    provider: direct_csv
+    name: "Office of Financial Research Financial Stress Index"
+    page_url: "https://www.financialresearch.gov/financial-stress-index/"
+    download_url: "https://www.financialresearch.gov/financial-stress-index/data/fsi.csv"
+    date_column: Date
+    native_frequency: business_daily
+    availability_lag_model_sessions: 2
+    max_staleness_calendar_days: 6
+    columns:
+      - source_column: OFR FSI
+        feature: ofr_financial_stress
+        units: standard_deviations
+        transform: level
+        role: financial_conditions
+        use: validation_only
+      - source_column: Credit
+        feature: ofr_credit_stress
+        units: contribution
+        transform: level
+        role: credit
+        use: validation_only
+      - source_column: Funding
+        feature: ofr_funding_stress
+        units: contribution
+        transform: level
+        role: funding_liquidity
+        use: validation_only
+      - source_column: Volatility
+        feature: ofr_volatility_stress
+        units: contribution
+        transform: level
+        role: volatility
+        use: validation_only
+
+derived_macro_features:
+  - feature: yield_curve_10y_2y
+    name: "10-year minus 2-year U.S. Treasury par yield"
+    operation: subtract
+    left: treasury_10y_level
+    right: treasury_2y_level
+    units: percentage_points
+    role: rates
+
+# These features are derived only from target returns observed by the decision
+# timestamp (after the close on date t). Forecast targets must begin at t+1.
+# This public-release design avoids bundling restricted option-index histories.
+derived_market_features:
+  - feature: industry_market_return
+    name: "Equal-weighted 12-industry return"
+    operation: cross_sectional_mean
+    source_prefix: asset__industry_
+    units: decimal_simple_return
+    lookback: 1
+    role: market
+
+  - feature: realized_volatility_20d
+    name: "20-observation elapsed-time annualized industry-market volatility"
+    operation: rolling_volatility
+    source: industry_market_return
+    units: annualized_decimal_volatility
+    lookback: 20
+    time_scaling: elapsed_calendar_years
+    role: volatility
+
+  - feature: downside_semivolatility_20d
+    name: "20-observation elapsed-time annualized downside semivolatility"
+    operation: rolling_downside_semivolatility
+    source: industry_market_return
+    units: annualized_decimal_volatility
+    lookback: 20
+    time_scaling: elapsed_calendar_years
+    role: downside_risk
+
+  - feature: industry_dispersion_20d
+    name: "20-observation mean cross-industry return dispersion"
+    operation: rolling_cross_sectional_dispersion
+    source_prefix: asset__industry_
+    units: decimal_return_dispersion
+    lookback: 20
+    role: cross_sectional_stress
+
+  - feature: market_drawdown_60d
+    name: "Industry-market drawdown from 60-observation rolling peak"
+    operation: rolling_drawdown
+    source: industry_market_return
+    units: decimal_drawdown
+    lookback: 60
+    role: drawdown

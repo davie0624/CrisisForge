@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "crisisforge"
+version = "0.3.0"
+description = "Decision-focused market simulation under regime shifts"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = {text = "MIT"}
+authors = [{name = "CrisisForge Research Project"}]
+dependencies = [
+  "numpy>=2.0",
+  "pandas>=2.2",
+  "pyarrow>=17.0",
+  "PyYAML>=6.0",
+  "requests>=2.32",
+  "scipy>=1.14",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=5.0",
+  "ruff>=0.8",
+]
+models = [
+  "arch>=7.2",
+  "cvxpy>=1.6",
+  "hmmlearn>=0.3.3",
+  "scikit-learn>=1.5",
+  "statsmodels>=0.14.4",
+  "torch>=2.5",
+]
+notebooks = [
+  "jupyterlab>=4.3",
+  "nbclient>=0.10",
+  "nbformat>=5.10",
+]
+
+[project.scripts]
+crisisforge-phase0 = "crisisforge.data.pipeline:main"
+crisisforge-stage0 = "crisisforge.evaluation.rolling:main"
+crisisforge-stage1 = "crisisforge.evaluation.stage1:main"
+crisisforge-stage2 = "crisisforge.evaluation.stage2:main"
+crisisforge-stage5 = "crisisforge.evaluation.decision:main"
+crisisforge-counterfactual = "crisisforge.evaluation.counterfactual:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/crisisforge"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

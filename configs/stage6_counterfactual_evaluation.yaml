@@ -1,0 +1,32 @@
+experiment:
+  id: stage6_semisynthetic_counterfactual_v1
+  random_seed: 20260728
+  num_paths: 5000
+  horizon: 20
+  confidence_level: 0.95
+
+policy_intervention:
+  active_steps: 5
+  factual_control_value: 0.0
+  treatment_value: 0.50
+
+controlled_direct_effect:
+  mediator_value: 0.0
+  mediators: [yield, liquidity, credit]
+  active_steps: 20
+
+misspecification:
+  reduced_yield_policy_multiplier: 0.50
+  remove_lagged_equity_feedback: true
+
+paths:
+  output: artifacts/stage6_counterfactual
+
+claims_boundary:
+  known_ground_truth: semi_synthetic_only
+  real_market_causal_identification: false
+  real_market_language: model_based_structural_intervention
+  note: >-
+    Oracle recovery validates implementation under a known SCM. Misspecified
+    coefficient experiments quantify sensitivity. Neither exercise identifies
+    policy effects in observed financial markets.
