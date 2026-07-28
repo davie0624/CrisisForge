@@ -126,9 +126,7 @@ def build_common_interval_audit(
     audit = pd.DataFrame(index=common)
     audit.index.name = "interval_end"
     audit["interval_start"] = pd.Series(common, index=common).shift(1)
-    audit["calendar_days"] = (
-        pd.Series(common, index=common).diff().dt.total_seconds() / 86_400.0
-    )
+    audit["calendar_days"] = pd.Series(common, index=common).diff().dt.total_seconds() / 86_400.0
     for name, calendar in source_calendars.items():
         source_calendar = pd.DatetimeIndex(calendar).sort_values().unique()
         endpoint_present = common.isin(source_calendar)
@@ -137,9 +135,7 @@ def build_common_interval_audit(
         counts = np.full(len(common), np.nan)
         counts[1:] = np.diff(positions)
         audit[f"observations__{name}"] = counts
-    endpoint_columns = [
-        column for column in audit if column.startswith("endpoint_present__")
-    ]
+    endpoint_columns = [column for column in audit if column.startswith("endpoint_present__")]
     audit["all_source_endpoints_present"] = audit[endpoint_columns].all(axis=1)
     return audit
 
@@ -160,27 +156,19 @@ def build_derived_market_features(
 
         if operation == "cross_sectional_mean":
             columns = [
-                column
-                for column in returns
-                if column.startswith(specification["source_prefix"])
+                column for column in returns if column.startswith(specification["source_prefix"])
             ]
             if not columns:
-                raise DataQualityError(
-                    f"No return columns match {specification['source_prefix']}"
-                )
+                raise DataQualityError(f"No return columns match {specification['source_prefix']}")
             outputs[output_name] = returns[columns].mean(axis=1)
             continue
 
         if operation == "rolling_cross_sectional_dispersion":
             columns = [
-                column
-                for column in returns
-                if column.startswith(specification["source_prefix"])
+                column for column in returns if column.startswith(specification["source_prefix"])
             ]
             if not columns:
-                raise DataQualityError(
-                    f"No return columns match {specification['source_prefix']}"
-                )
+                raise DataQualityError(f"No return columns match {specification['source_prefix']}")
             daily_dispersion = returns[columns].std(axis=1, ddof=1)
             outputs[output_name] = daily_dispersion.rolling(
                 lookback,
@@ -190,26 +178,21 @@ def build_derived_market_features(
 
         source_name = f"macro__{specification['source']}"
         if source_name not in outputs:
-            raise DataQualityError(
-                f"Derived market feature {feature} requires {source_name}"
-            )
+            raise DataQualityError(f"Derived market feature {feature} requires {source_name}")
         source = outputs[source_name]
         if operation == "rolling_volatility":
             if interval_years is not None:
                 elapsed = interval_years.reindex(source.index)
                 log_returns = np.log1p(source)
                 outputs[output_name] = np.sqrt(
-                    log_returns.pow(2)
-                    .rolling(lookback, min_periods=lookback)
-                    .sum()
+                    log_returns.pow(2).rolling(lookback, min_periods=lookback).sum()
                     / elapsed.rolling(lookback, min_periods=lookback).sum()
                 )
             else:
                 annualization = float(specification["annualization"])
-                outputs[output_name] = (
-                    source.rolling(lookback, min_periods=lookback).std(ddof=1)
-                    * np.sqrt(annualization)
-                )
+                outputs[output_name] = source.rolling(lookback, min_periods=lookback).std(
+                    ddof=1
+                ) * np.sqrt(annualization)
         elif operation == "rolling_downside_semivolatility":
             if interval_years is not None:
                 elapsed = interval_years.reindex(source.index)
@@ -306,9 +289,7 @@ def chronological_split(
     train_cut = pd.Timestamp(train_end)
     validation_cut = pd.Timestamp(validation_end)
     train = frame.loc[frame.index <= train_cut].copy()
-    validation = frame.loc[
-        (frame.index > train_cut) & (frame.index <= validation_cut)
-    ].copy()
+    validation = frame.loc[(frame.index > train_cut) & (frame.index <= validation_cut)].copy()
     test = frame.loc[frame.index > validation_cut].copy()
     assert_chronological_splits(train, validation, test)
     return train, validation, test
@@ -324,9 +305,7 @@ def _fetch_downloaded_returns(
     raw_base: Path | None = None,
 ) -> dict[str, pd.DataFrame]:
     raw_root = (
-        raw_base
-        if raw_base is not None
-        else project_root / pipeline["paths"]["raw"]
+        raw_base if raw_base is not None else project_root / pipeline["paths"]["raw"]
     ) / "returns"
     start_date = pipeline["sample"]["start_date"]
     end_date = pipeline["sample"]["end_date"] or datetime.now(UTC).date().isoformat()
@@ -380,9 +359,7 @@ def _fetch_macro(
     raw_base: Path | None = None,
 ) -> dict[str, pd.DataFrame]:
     raw_root = (
-        raw_base
-        if raw_base is not None
-        else project_root / pipeline["paths"]["raw"]
+        raw_base if raw_base is not None else project_root / pipeline["paths"]["raw"]
     ) / "macro"
     start_date = pipeline["sample"]["start_date"]
     end_date = pipeline["sample"]["end_date"] or datetime.now(UTC).date().isoformat()
@@ -393,9 +370,7 @@ def _fetch_macro(
         path = raw_root / f"{source_id}.csv"
         if refresh or not path.exists():
             if not allow_network:
-                raise FileNotFoundError(
-                    f"No cached direct-origin snapshot for {source_id}: {path}"
-                )
+                raise FileNotFoundError(f"No cached direct-origin snapshot for {source_id}: {path}")
             download = download_macro_source(source, start_date, end_date)
             write_snapshot(
                 download,
@@ -456,8 +431,7 @@ def _build_target_return_panel(
         if source["provider"] == "french_research_zip":
             raw = downloaded_returns[source["id"]].set_index("date")
             renamed = {
-                item["source_column"]: f"asset__{item['asset']}"
-                for item in source["columns"]
+                item["source_column"]: f"asset__{item['asset']}" for item in source["columns"]
             }
             downloaded_parts.append(raw[list(renamed)].rename(columns=renamed))
             continue
@@ -467,11 +441,7 @@ def _build_target_return_panel(
         raise ValueError(f"Unsupported target-return provider: {source['provider']}")
     if not downloaded_parts:
         raise ValueError("At least one downloaded return panel is required")
-    base_returns = (
-        pd.concat(downloaded_parts, axis=1, join="inner")
-        .sort_index()
-        .dropna(how="any")
-    )
+    base_returns = pd.concat(downloaded_parts, axis=1, join="inner").sort_index().dropna(how="any")
     parts: list[pd.DataFrame] = []
     interval_audit: pd.DataFrame | None = None
     for source in derived_sources:
@@ -542,9 +512,7 @@ def _build_context_panels(
                 series,
                 feature_name=item["feature"],
                 availability_lag_sessions=source["availability_lag_model_sessions"],
-                max_staleness_calendar_days=source[
-                    "max_staleness_calendar_days"
-                ],
+                max_staleness_calendar_days=source["max_staleness_calendar_days"],
                 value_prefix=prefix,
             )
             aligned_parts.append(aligned)
@@ -647,9 +615,7 @@ def _begin_publication_transaction(
             if root.name not in allowed_names:
                 raise ValueError(f"Refusing to transact unexpected path: {root}")
             gitkeep_bytes = (
-                (root / ".gitkeep").read_bytes()
-                if (root / ".gitkeep").exists()
-                else b""
+                (root / ".gitkeep").read_bytes() if (root / ".gitkeep").exists() else b""
             )
             backup = root.parent / f".{root.name}-backup-{os.getpid()}"
             if backup.exists():
@@ -742,9 +708,7 @@ def _target_calendar_quality(
             frame = macro_frames[source["source_id"]].dropna(subset=columns)
             calendars[source["id"]] = pd.DatetimeIndex(frame["date"])
         else:
-            raise ValueError(
-                f"Unsupported target source for calendar audit: {source['provider']}"
-            )
+            raise ValueError(f"Unsupported target source for calendar audit: {source['provider']}")
     if not calendars:
         raise DataQualityError("No target calendars are configured")
     source_metrics: dict[str, dict[str, Any]] = {}
@@ -753,9 +717,7 @@ def _target_calendar_quality(
         if len(unique_dates) < 2:
             max_gap = float("inf")
         else:
-            max_gap = float(
-                pd.Series(unique_dates).diff().dt.total_seconds().max() / 86_400.0
-            )
+            max_gap = float(pd.Series(unique_dates).diff().dt.total_seconds().max() / 86_400.0)
         source_metrics[source_id] = {
             "observations": int(len(unique_dates)),
             "first_date": unique_dates.min().date().isoformat(),
@@ -772,9 +734,7 @@ def _target_calendar_quality(
         for source_id, dates in calendars.items()
     }
     maximum_count = max(overlap_counts.values())
-    relative_density = (
-        min(overlap_counts.values()) / maximum_count if maximum_count else 0.0
-    )
+    relative_density = min(overlap_counts.values()) / maximum_count if maximum_count else 0.0
     return {
         "sources": source_metrics,
         "overlap_start": overlap_start.date().isoformat(),
@@ -817,9 +777,7 @@ def _aligned_context_calendar_quality(
         for item in source["columns"]:
             use = item.get("use", "model")
             prefix = prefix_for_use[use]
-            columns_by_use.setdefault(use, []).append(
-                f"{prefix}__{item['feature']}"
-            )
+            columns_by_use.setdefault(use, []).append(f"{prefix}__{item['feature']}")
         for use, value_columns in columns_by_use.items():
             missing = sorted(set(value_columns) - set(aligned.columns))
             if missing:
@@ -833,22 +791,17 @@ def _aligned_context_calendar_quality(
                 maximum_gap = None
             else:
                 maximum_gap = float(
-                    pd.Series(usable_dates).diff().dt.total_seconds().max()
-                    / 86_400.0
+                    pd.Series(usable_dates).diff().dt.total_seconds().max() / 86_400.0
                 )
             roles[role_for_use[use]][source["id"]] = {
                 "features": value_columns,
                 "usable_observations": int(usable.sum()),
                 "coverage_on_target_calendar": float(usable.mean()),
                 "first_usable_date": (
-                    usable_dates.min().date().isoformat()
-                    if len(usable_dates)
-                    else None
+                    usable_dates.min().date().isoformat() if len(usable_dates) else None
                 ),
                 "last_usable_date": (
-                    usable_dates.max().date().isoformat()
-                    if len(usable_dates)
-                    else None
+                    usable_dates.max().date().isoformat() if len(usable_dates) else None
                 ),
                 "maximum_internal_gap_calendar_days": maximum_gap,
             }
@@ -880,9 +833,7 @@ def _source_freshness(
         )
         if age_days < 0:
             status = "failed"
-            failures.append(
-                f"{source_id} filtered end exceeds requested end by {-age_days} days"
-            )
+            failures.append(f"{source_id} filtered end exceeds requested end by {-age_days} days")
         elif age_days > fail_after_days:
             status = "failed"
             failures.append(message)
@@ -1150,15 +1101,11 @@ def run_phase0(
     ]
     audit_on_model_dates = alignment_audit.reindex(model_matrix.index)
     source_dates_ok = all(
-        not (audit_on_model_dates[column] > audit_on_model_dates.index)
-        .fillna(False)
-        .any()
+        not (audit_on_model_dates[column] > audit_on_model_dates.index).fillna(False).any()
         for column in source_date_columns
     )
     availability_dates_ok = all(
-        not (audit_on_model_dates[column] > audit_on_model_dates.index)
-        .fillna(False)
-        .any()
+        not (audit_on_model_dates[column] > audit_on_model_dates.index).fillna(False).any()
         for column in available_date_columns
     )
 
@@ -1181,9 +1128,7 @@ def run_phase0(
         "test": processed_root / "splits" / "test.parquet",
     }
 
-    asset_coverage = {
-        column: float(returns[column].notna().mean()) for column in asset_columns
-    }
+    asset_coverage = {column: float(returns[column].notna().mean()) for column in asset_columns}
     interval_rows = interval_audit.loc[interval_audit["interval_start"].notna()]
     metadata_records = _load_source_metadata(candidate_raw_root)
     used_last_dates = {
@@ -1200,12 +1145,8 @@ def run_phase0(
         metadata_records,
         used_last_dates=used_last_dates,
         reference_date=requested_end,
-        warning_after_days=int(
-            pipeline["quality"]["warning_after_source_staleness_calendar_days"]
-        ),
-        fail_after_days=int(
-            pipeline["quality"]["fail_after_source_staleness_calendar_days"]
-        ),
+        warning_after_days=int(pipeline["quality"]["warning_after_source_staleness_calendar_days"]),
+        fail_after_days=int(pipeline["quality"]["fail_after_source_staleness_calendar_days"]),
     )
     finite_model_fraction = finite_fraction(model_matrix)
     source_internal_gaps = [
@@ -1217,23 +1158,15 @@ def run_phase0(
         for item in target_calendar_quality["sources"].values()
     ]
     observation_count_columns = [
-        column
-        for column in interval_rows
-        if column.startswith("observations__")
+        column for column in interval_rows if column.startswith("observations__")
     ]
-    interval_observation_count_gap = (
-        interval_rows[observation_count_columns].max(axis=1)
-        - interval_rows[observation_count_columns].min(axis=1)
-    )
+    interval_observation_count_gap = interval_rows[observation_count_columns].max(
+        axis=1
+    ) - interval_rows[observation_count_columns].min(axis=1)
     model_context_metrics = list(context_calendar_quality["model"].values())
-    validation_context_metrics = list(
-        context_calendar_quality["validation"].values()
-    )
+    validation_context_metrics = list(context_calendar_quality["validation"].values())
     model_index_gap = (
-        float(
-            pd.Series(model_matrix.index).diff().dt.total_seconds().max()
-            / 86_400.0
-        )
+        float(pd.Series(model_matrix.index).diff().dt.total_seconds().max() / 86_400.0)
         if len(model_matrix) >= 2
         else float("inf")
     )
@@ -1242,8 +1175,7 @@ def run_phase0(
         "raw_cache_matches_catalog_allowlist": bool(raw_allowlist["passed"]),
         "minimum_asset_coverage": (
             bool(asset_coverage)
-            and min(asset_coverage.values())
-            >= float(pipeline["quality"]["minimum_asset_coverage"])
+            and min(asset_coverage.values()) >= float(pipeline["quality"]["minimum_asset_coverage"])
         ),
         "target_index_unique": not returns.index.has_duplicates,
         "target_index_increasing": returns.index.is_monotonic_increasing,
@@ -1255,36 +1187,21 @@ def run_phase0(
         "target_source_internal_gaps_within_limit": (
             bool(source_internal_gaps)
             and max(source_internal_gaps)
-            <= float(
-                pipeline["quality"][
-                    "maximum_target_source_internal_gap_calendar_days"
-                ]
-            )
+            <= float(pipeline["quality"]["maximum_target_source_internal_gap_calendar_days"])
         ),
         "target_source_start_delays_within_limit": (
             bool(source_start_delays)
             and max(source_start_delays)
-            <= int(
-                pipeline["quality"][
-                    "maximum_target_source_start_delay_calendar_days"
-                ]
-            )
+            <= int(pipeline["quality"]["maximum_target_source_start_delay_calendar_days"])
         ),
         "relative_target_calendar_density": (
             target_calendar_quality["minimum_relative_density"]
-            >= float(
-                pipeline["quality"]["minimum_relative_target_calendar_density"]
-            )
+            >= float(pipeline["quality"]["minimum_relative_target_calendar_density"])
         ),
         "model_context_source_coverage": (
             bool(model_context_metrics)
-            and min(
-                item["coverage_on_target_calendar"]
-                for item in model_context_metrics
-            )
-            >= float(
-                pipeline["quality"]["minimum_model_context_source_coverage"]
-            )
+            and min(item["coverage_on_target_calendar"] for item in model_context_metrics)
+            >= float(pipeline["quality"]["minimum_model_context_source_coverage"])
         ),
         "model_context_source_internal_gaps_within_limit": (
             bool(model_context_metrics)
@@ -1292,19 +1209,14 @@ def run_phase0(
                 item["maximum_internal_gap_calendar_days"] is not None
                 and item["maximum_internal_gap_calendar_days"]
                 <= float(
-                    pipeline["quality"][
-                        "maximum_model_context_source_internal_gap_calendar_days"
-                    ]
+                    pipeline["quality"]["maximum_model_context_source_internal_gap_calendar_days"]
                 )
                 for item in model_context_metrics
             )
         ),
         "validation_source_coverage": (
             not validation_context_metrics
-            or min(
-                item["coverage_on_target_calendar"]
-                for item in validation_context_metrics
-            )
+            or min(item["coverage_on_target_calendar"] for item in validation_context_metrics)
             >= float(pipeline["quality"]["minimum_validation_source_coverage"])
         ),
         "validation_source_internal_gaps_within_limit": (
@@ -1313,9 +1225,7 @@ def run_phase0(
                 item["maximum_internal_gap_calendar_days"] is not None
                 and item["maximum_internal_gap_calendar_days"]
                 <= float(
-                    pipeline["quality"][
-                        "maximum_validation_source_internal_gap_calendar_days"
-                    ]
+                    pipeline["quality"]["maximum_validation_source_internal_gap_calendar_days"]
                 )
                 for item in validation_context_metrics
             )
@@ -1326,27 +1236,17 @@ def run_phase0(
         ),
         "model_index_internal_gap_within_limit": (
             model_index_gap
-            <= float(
-                pipeline["quality"][
-                    "maximum_model_index_internal_gap_calendar_days"
-                ]
-            )
+            <= float(pipeline["quality"]["maximum_model_index_internal_gap_calendar_days"])
         ),
         "common_interval_calendar_gap_within_limit": (
             not interval_rows.empty
             and float(interval_rows["calendar_days"].max())
-            <= float(
-                pipeline["quality"]["maximum_common_interval_calendar_days"]
-            )
+            <= float(pipeline["quality"]["maximum_common_interval_calendar_days"])
         ),
         "interval_source_observation_count_gap_within_limit": (
             not interval_observation_count_gap.empty
             and float(interval_observation_count_gap.max())
-            <= float(
-                pipeline["quality"][
-                    "maximum_interval_source_observation_count_gap"
-                ]
-            )
+            <= float(pipeline["quality"]["maximum_interval_source_observation_count_gap"])
         ),
         "model_matrix_finite": finite_model_fraction == 1.0,
         "model_index_unique": not model_matrix.index.has_duplicates,
@@ -1377,9 +1277,7 @@ def run_phase0(
         "target_quality": _target_return_quality(returns),
         "target_calendar_quality": {
             **target_calendar_quality,
-            "maximum_interval_calendar_days": float(
-                interval_rows["calendar_days"].max()
-            ),
+            "maximum_interval_calendar_days": float(interval_rows["calendar_days"].max()),
             "maximum_interval_source_observation_count_gap": float(
                 interval_observation_count_gap.max()
             ),
@@ -1415,9 +1313,7 @@ def run_phase0(
         "leakage_checks": {
             "source_dates_not_after_model_date": source_dates_ok,
             "availability_dates_not_after_model_date": availability_dates_ok,
-            "strict_chronological_splits": gate_results[
-                "strict_chronological_splits"
-            ],
+            "strict_chronological_splits": gate_results["strict_chronological_splits"],
             "validation_only_ofr_excluded_from_model_matrix": gate_results[
                 "validation_only_features_excluded"
             ],
@@ -1478,9 +1374,7 @@ def run_phase0(
         )
         if staging_context is not None:
             staging_context.cleanup()
-        raise DataQualityError(
-            "Phase 0 quality gates failed: " + ", ".join(failed_gates)
-        )
+        raise DataQualityError("Phase 0 quality gates failed: " + ", ".join(failed_gates))
 
     backup_root: Path | None = None
     publication_backups: dict[Path, Path | None] = {}
@@ -1562,10 +1456,7 @@ def _quality_markdown(report: dict[str, Any]) -> str:
             "",
             "| Gate | Result |",
             "|---|---|",
-            *[
-                f"| `{name}` | {'PASS' if passed else 'FAIL'} |"
-                for name, passed in gates.items()
-            ],
+            *[f"| `{name}` | {'PASS' if passed else 'FAIL'} |" for name, passed in gates.items()],
             "",
             "## Chronological splits",
             "",
@@ -1635,9 +1526,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     project_root = (
-        args.project_root.resolve()
-        if args.project_root is not None
-        else project_root_from_module()
+        args.project_root.resolve() if args.project_root is not None else project_root_from_module()
     )
     receipt = run_phase0(
         project_root,

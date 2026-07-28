@@ -1,0 +1,1548 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "CrisisForge: Decision-Focused Market Simulation under Regime Shifts",
+    "description": "A validation-first research report on structured financial scenario generation, tail risk, portfolio decisions, and counterfactual limits.",
+    "generatedAt": "2026-07-28T02:39:26.218208+00:00",
+    "sources": [
+      {
+        "id": "phase0",
+        "label": "Phase 0 public-data receipt",
+        "path": "artifacts/phase0/run_receipt.json",
+        "query": {
+          "description": "Loads the frozen public-data receipt and quality-gate counts.",
+          "engine": "duckdb",
+          "language": "sql",
+          "sql": "SELECT COUNT(*) AS aligned_observations, 23 AS quality_gates_passed FROM read_parquet('data/processed/model_matrix.parquet')",
+          "tables_used": [
+            "data/processed/model_matrix.parquet",
+            "artifacts/phase0/run_receipt.json"
+          ],
+          "filters": [
+            "Training and validation eras only for modeling evidence",
+            "Phase 0 constructs and quality-checks post-2019 rows, but modeling and evaluation keep them governed-excluded"
+          ],
+          "metric_definitions": [
+            "Aligned observations are complete common-endpoint rows in the model matrix.",
+            "Quality gates passed is the count of registered Phase 0 checks returning true."
+          ]
+        }
+      },
+      {
+        "id": "stage0_stage1",
+        "label": "Validation scenario scores",
+        "path": "artifacts/stage0_baselines/summary.csv",
+        "query": {
+          "description": "Combines reviewed Stage 0 and Stage 1 validation summary metrics.",
+          "engine": "duckdb",
+          "language": "sql",
+          "sql": "WITH s0 AS (SELECT model_id, forecast_origins, mean_energy_score, mean_variogram_score, joint_var_es_score, var_violation_rate FROM read_csv_auto('artifacts/stage0_baselines/summary.csv')), s1 AS (SELECT model_id, origins AS forecast_origins, mean_energy_score, mean_variogram_score, joint_var_es_score, coverage.observed_violation_rate AS var_violation_rate FROM read_json_auto('artifacts/stage1_switching_factor/summary.json')) SELECT * FROM s0 UNION ALL SELECT * FROM s1",
+          "tables_used": [
+            "artifacts/stage0_baselines/summary.csv",
+            "artifacts/stage1_switching_factor/summary.json"
+          ],
+          "filters": [
+            "74 non-overlapping validation origins",
+            "1,000 scenarios per origin"
+          ],
+          "metric_definitions": [
+            "Energy and variogram scores use the geometrically compounded 15-asset H=20 return vector and are lower-is-better.",
+            "VaR, ES, joint VaR-ES, and violation rates use a frozen equal-weight portfolio with one fifteenth in each asset.",
+            "VaR violation rate is observed breaches divided by 74 validation origins."
+          ]
+        }
+      },
+      {
+        "id": "stage3",
+        "label": "Paired moving-block intervals",
+        "path": "artifacts/stage3_comparison/paired_metric_intervals.csv",
+        "query": {
+          "description": "Reads paired Stage 1 minus Stage 0 interval estimates.",
+          "engine": "duckdb",
+          "language": "sql",
+          "sql": "SELECT * FROM read_csv_auto('artifacts/stage3_comparison/paired_metric_intervals.csv')",
+          "tables_used": [
+            "artifacts/stage3_comparison/paired_metric_intervals.csv"
+          ],
+          "filters": [
+            "Circular moving-block bootstrap",
+            "Block length 4",
+            "10,000 replications",
+            "No multiplicity adjustment"
+          ],
+          "metric_definitions": [
+            "Mean difference equals Stage 1 score minus Stage 0 score.",
+            "For lower-is-better metrics, a positive interval favors Stage 0."
+          ]
+        }
+      },
+      {
+        "id": "stage1_states",
+        "label": "Training-only latent-state profiles",
+        "path": "artifacts/stage1_switching_factor/state_profiles.csv",
+        "query": {
+          "description": "Reads state occupancy, mean, and volatility profiles from the frozen Stage 1 fit.",
+          "engine": "duckdb",
+          "language": "sql",
+          "sql": "SELECT * FROM read_csv_auto('artifacts/stage1_switching_factor/state_profiles.csv')",
+          "tables_used": [
+            "artifacts/stage1_switching_factor/state_profiles.csv"
+          ],
+          "filters": [
+            "Training era only"
+          ],
+          "metric_definitions": [
+            "Occupancy is the mean smoothed posterior state probability in training.",
+            "State labels are statistical identifiers, not causal economic regimes."
+          ]
+        }
+      },
+      {
+        "id": "stage2",
+        "label": "One-shot temporal DDPM pilot",
+        "path": "artifacts/stage2_public_core_pilot/summary.json",
+        "query": {
+          "description": "Reads the two four-origin engineering-pilot checkpoints.",
+          "engine": "duckdb",
+          "language": "sql",
+          "sql": "SELECT unnest(variants) FROM read_json_auto('artifacts/stage2_public_core_pilot/summary.json')",
+          "tables_used": [
+            "artifacts/stage2_public_core_pilot/summary.json"
+          ],
+          "filters": [
+            "Four late-validation reporting origins",
+            "Superiority claim prohibited"
+          ],
+          "metric_definitions": [
+            "Pilot scores are means over four reporting origins and are not ranking evidence."
+          ]
+        }
+      },
+      {
+        "id": "stage5",
+        "label": "Validation portfolio decisions",
+        "path": "artifacts/stage5_decisions/summary.csv",
+        "query": {
+          "description": "Reads transaction-cost-aware validation decision outcomes.",
+          "engine": "duckdb",
+          "language": "sql",
+          "sql": "SELECT * FROM read_csv_auto('artifacts/stage5_decisions/summary.csv')",
+          "tables_used": [
+            "artifacts/stage5_decisions/summary.csv"
+          ],
+          "filters": [
+            "74 validation blocks",
+            "Long-only and fully invested",
+            "95% CVaR",
+            "Post-2019 rows governed-excluded from decisions"
+          ],
+          "metric_definitions": [
+            "Realized ES is the integral of the right-continuous empirical loss quantile from 95% to 100%, divided by 5%; fractional threshold mass is included when required.",
+            "Maximum drawdown is computed from the net block-return wealth path.",
+            "Turnover is the L1 change in portfolio weights.",
+            "Strategy rankings are descriptive over 74 block outcomes; no paired sampling interval was computed."
+          ]
+        }
+      },
+      {
+        "id": "stage6",
+        "label": "Semi-synthetic counterfactual experiment",
+        "path": "artifacts/stage6_counterfactual/effect_summary.csv",
+        "query": {
+          "description": "Reads paired abduction-action-prediction errors under known and misspecified SCMs.",
+          "engine": "duckdb",
+          "language": "sql",
+          "sql": "SELECT * FROM read_csv_auto('artifacts/stage6_counterfactual/effect_summary.csv')",
+          "tables_used": [
+            "artifacts/stage6_counterfactual/effect_summary.csv"
+          ],
+          "filters": [
+            "5,000 paired paths",
+            "Horizon 20",
+            "Known semi-synthetic SCM only"
+          ],
+          "metric_definitions": [
+            "Path RMSE compares the estimated intervention-effect path with known ground truth.",
+            "Path loss is s times the 20-step outcome sum: s=-1 for equity and s=+1 for volatility.",
+            "Tail effect is treated minus reference 95% ES of path loss; tail-effect error is its absolute error against known truth.",
+            "Oracle error validates numerical recovery by construction and is not real-market identification."
+          ]
+        }
+      }
+    ],
+    "cards": [
+      {
+        "id": "card-observations",
+        "description": "Complete public-data rows spanning 15 assets and 10 context features.",
+        "dataset": "headline",
+        "sourceId": "phase0",
+        "metrics": [
+          {
+            "label": "Aligned observations",
+            "field": "aligned_observations",
+            "format": "number"
+          },
+          {
+            "label": "Quality gates",
+            "field": "quality_gates_passed",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "card-origins",
+        "description": "Non-overlapping 20-observation forecast blocks; post-2019 rows remain governed-excluded from model evaluation.",
+        "dataset": "headline",
+        "sourceId": "stage0_stage1",
+        "metrics": [
+          {
+            "label": "Validation origins",
+            "field": "validation_origins",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "card-paired-evidence",
+        "description": "Exploratory paired intervals with no multiplicity adjustment.",
+        "dataset": "headline",
+        "sourceId": "stage3",
+        "metrics": [
+          {
+            "label": "Intervals favoring Stage 1",
+            "field": "intervals_favoring_stage1",
+            "format": "number"
+          },
+          {
+            "label": "Unfavorable",
+            "field": "intervals_unfavorable_to_stage1",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "card-decision-es",
+        "description": "Observed validation loss tail under the rule with the lowest descriptive ES.",
+        "dataset": "headline",
+        "sourceId": "stage5",
+        "metrics": [
+          {
+            "label": "Historical CVaR realized ES",
+            "field": "historical_cvar_realized_es",
+            "format": "number"
+          },
+          {
+            "label": "vs equal weight",
+            "field": "historical_cvar_es_reduction",
+            "format": "percent"
+          }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "chart-energy",
+        "title": "Validation energy score across scenario generators",
+        "subtitle": "Lower is better; filtered historical simulation leads this comparison.",
+        "dataset": "generator_scores",
+        "type": "bar",
+        "sourceId": "stage0_stage1",
+        "encodings": {
+          "x": {
+            "field": "model_label",
+            "type": "nominal"
+          },
+          "y": {
+            "field": "mean_energy_score",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "model_family",
+            "type": "nominal"
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "grouping": "single",
+          "legend": true
+        }
+      },
+      {
+        "id": "chart-decision-es",
+        "title": "Realized expected shortfall across portfolio rules",
+        "subtitle": "Historical CVaR has the lowest realized validation ES.",
+        "dataset": "decisions",
+        "type": "bar",
+        "sourceId": "stage5",
+        "encodings": {
+          "x": {
+            "field": "strategy_label",
+            "type": "nominal"
+          },
+          "y": {
+            "field": "realized_expected_shortfall",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "strategy_family",
+            "type": "nominal"
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "grouping": "single",
+          "legend": true
+        }
+      }
+    ],
+    "tables": [
+      {
+        "id": "table-paired",
+        "title": "Paired Stage 1 minus Stage 0 score intervals",
+        "dataset": "paired_intervals",
+        "sourceId": "stage3",
+        "columns": [
+          {
+            "field": "baseline_label",
+            "label": "Baseline",
+            "type": "text"
+          },
+          {
+            "field": "metric_label",
+            "label": "Metric",
+            "type": "text"
+          },
+          {
+            "field": "mean_difference",
+            "label": "Mean Δ",
+            "type": "number",
+            "format": ".5f"
+          },
+          {
+            "field": "ci_lower",
+            "label": "CI lower",
+            "type": "number",
+            "format": ".5f"
+          },
+          {
+            "field": "ci_upper",
+            "label": "CI upper",
+            "type": "number",
+            "format": ".5f"
+          },
+          {
+            "field": "direction",
+            "label": "Interpretation",
+            "type": "text"
+          }
+        ],
+        "defaultSort": {
+          "field": "mean_difference",
+          "direction": "desc"
+        }
+      },
+      {
+        "id": "table-states",
+        "title": "Training-only latent-state profiles",
+        "dataset": "state_profiles",
+        "sourceId": "stage1_states",
+        "columns": [
+          {
+            "field": "state_label",
+            "label": "State",
+            "type": "text"
+          },
+          {
+            "field": "occupancy",
+            "label": "Occupancy",
+            "type": "percent"
+          },
+          {
+            "field": "weighted_market_mean_per_interval",
+            "label": "Weighted mean",
+            "type": "number",
+            "format": ".5f"
+          },
+          {
+            "field": "weighted_market_volatility_per_interval",
+            "label": "Weighted volatility",
+            "type": "number",
+            "format": ".5f"
+          }
+        ],
+        "defaultSort": {
+          "field": "state_label",
+          "direction": "asc"
+        }
+      },
+      {
+        "id": "table-counterfactual",
+        "title": "Semi-synthetic counterfactual sensitivity",
+        "dataset": "counterfactual",
+        "sourceId": "stage6",
+        "columns": [
+          {
+            "field": "model_label",
+            "label": "Model",
+            "type": "text"
+          },
+          {
+            "field": "outcome_label",
+            "label": "Outcome",
+            "type": "text"
+          },
+          {
+            "field": "path_rmse",
+            "label": "Path RMSE",
+            "type": "number",
+            "format": ".5f"
+          },
+          {
+            "field": "tail_effect_error",
+            "label": "20-step tail-effect error",
+            "type": "number",
+            "format": ".5f"
+          },
+          {
+            "field": "tail_loss_sign",
+            "label": "Tail loss sign",
+            "type": "number",
+            "format": ".0f"
+          }
+        ],
+        "defaultSort": {
+          "field": "path_rmse",
+          "direction": "desc"
+        }
+      }
+    ],
+    "blocks": [
+      {
+        "id": "block-title",
+        "type": "markdown",
+        "body": "# CrisisForge: Decision-Focused Market Simulation under Regime Shifts"
+      },
+      {
+        "id": "block-executive-summary",
+        "type": "markdown",
+        "body": "## Executive Summary\nCrisisForge now has an auditable public-data pipeline and working multi-stage research prototype, but the validation evidence does not support claiming that the structured generator beats simpler methods. Filtered historical simulation leads energy score, moving blocks lead variogram score and VaR coverage, and no paired interval clearly favors Stage 1. Historical CVaR has the lowest observed validation ES and drawdown among the tested rules, but no paired sampling interval was computed. The diffusion run remains a four-origin engineering pilot, while causal claims are limited to a known semi-synthetic SCM."
+      },
+      {
+        "id": "block-headline-metrics",
+        "type": "metric-strip",
+        "cardIds": [
+          "card-observations",
+          "card-origins",
+          "card-paired-evidence",
+          "card-decision-es"
+        ]
+      },
+      {
+        "id": "block-validation-evidence",
+        "type": "markdown",
+        "body": "## Validation Evidence\nAll reported model comparisons use the 2014–2019 validation era. Phase 0 constructs and quality-checks post-2019 rows, but they are governed-excluded from estimator fitting, checkpoint selection, model scoring, and portfolio decisions. Stage 1 uses a train-frozen switching factor system, while conventional baselines refit rolling 1,500-observation windows, so the comparison mixes model class and update policy."
+      },
+      {
+        "id": "block-energy-chart",
+        "type": "chart",
+        "chartId": "chart-energy"
+      },
+      {
+        "id": "block-paired-uncertainty",
+        "type": "markdown",
+        "body": "## Paired Uncertainty\nAcross 21 exploratory paired intervals, five exclude zero in the direction unfavorable to Stage 1 and none clearly favors Stage 1. The intervals are not multiplicity-adjusted and must not be read as causal effects of architecture."
+      },
+      {
+        "id": "block-paired-table",
+        "type": "table",
+        "tableId": "table-paired"
+      },
+      {
+        "id": "block-latent-states",
+        "type": "markdown",
+        "body": "## Latent States and Observation Mapping\nThe four states are statistical components, not observed economic regimes. The implemented factor-to-asset map is fitted in y=log(1+r) space with state-specific Gaussian residual covariance, then converted back to simple returns with expm1."
+      },
+      {
+        "id": "block-state-table",
+        "type": "table",
+        "tableId": "table-states"
+      },
+      {
+        "id": "block-portfolio-decision",
+        "type": "markdown",
+        "body": "## Portfolio Decision Layer\nHistorical CVaR has lower observed validation expected shortfall and maximum drawdown than the other tested rules. This ranking is descriptive over 74 block outcomes; no paired sampling interval was computed. Stage 1 portfolio rules turn over more, and the registered Wasserstein radii do not provide a discernible advantage."
+      },
+      {
+        "id": "block-decision-chart",
+        "type": "chart",
+        "chartId": "chart-decision-es"
+      },
+      {
+        "id": "block-counterfactual-boundary",
+        "type": "markdown",
+        "body": "## Structural Counterfactual Boundary\nAbduction-action-prediction exactly recovers the known semi-synthetic oracle by construction, while structural misspecification creates material errors. Equity tail loss uses the negative 20-step outcome sum; volatility tail loss uses the positive sum, so higher volatility is stress. This validates the numerical mechanism only; it does not identify real-market policy effects."
+      },
+      {
+        "id": "block-counterfactual-table",
+        "type": "table",
+        "tableId": "table-counterfactual"
+      },
+      {
+        "id": "block-interpretation-limits",
+        "type": "markdown",
+        "body": "## Interpretation Limits\nStage 1 is MAP/empirical-Bayes rather than a full Bayesian posterior. Stage 2 reports four validation origins and cannot support ranking. The realized co-crash label is zero at every evaluated origin, although generated scenario sets can assign nonzero probabilities; event discrimination is therefore unassessable. Tail POT/GPD and conformal utilities are implemented and tested but not yet integrated into a standalone empirical runner."
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "status": "ready",
+    "generatedAt": "2026-07-28T02:39:26.218208+00:00",
+    "datasets": {
+      "headline": [
+        {
+          "aligned_observations": 6465,
+          "asset_targets": 15,
+          "context_features": 10,
+          "quality_gates_passed": 23,
+          "quality_gates_total": 23,
+          "train_rows": 3367,
+          "validation_rows": 1499,
+          "sealed_test_rows": 1599,
+          "phase0_manifest_sha256": "f051ec35236a481858b67c5b1e7136f1698036832f427efba521dbf3fcd36d70",
+          "validation_origins": 74,
+          "paired_intervals": 21,
+          "intervals_favoring_stage1": 0,
+          "intervals_unfavorable_to_stage1": 5,
+          "historical_cvar_realized_es": 0.0176688150409637,
+          "equal_weight_realized_es": 0.0454701752243255,
+          "historical_cvar_es_reduction": 0.6114196843580385,
+          "stage2_reporting_origins": 4,
+          "counterfactual_paths": 5000,
+          "oracle_maximum_error": 4.084527897230527e-17
+        }
+      ],
+      "generator_scores": [
+        {
+          "model_id": "filtered_historical_ewma",
+          "forecast_origins": 74,
+          "mean_energy_score": 0.089738635534617,
+          "mean_variogram_score": 0.5420242437111366,
+          "joint_var_es_score": -0.947757556741536,
+          "var_violation_rate": 0.027027027027027,
+          "model_label": "Filtered historical",
+          "model_family": "Conventional",
+          "energy_rank": 1.0,
+          "variogram_rank": 2.0
+        },
+        {
+          "model_id": "moving_block_20",
+          "forecast_origins": 74,
+          "mean_energy_score": 0.0898113721049786,
+          "mean_variogram_score": 0.5322258415958,
+          "joint_var_es_score": -0.94903230020366,
+          "var_violation_rate": 0.054054054054054,
+          "model_label": "Moving block",
+          "model_family": "Conventional",
+          "energy_rank": 2.0,
+          "variogram_rank": 1.0
+        },
+        {
+          "model_id": "var1_residual_bootstrap",
+          "forecast_origins": 74,
+          "mean_energy_score": 0.0912362572506804,
+          "mean_variogram_score": 0.5633006100310869,
+          "joint_var_es_score": -0.9485353039222268,
+          "var_violation_rate": 0.027027027027027,
+          "model_label": "VAR residual",
+          "model_family": "Conventional",
+          "energy_rank": 3.0,
+          "variogram_rank": 3.0
+        },
+        {
+          "model_id": "student_t_copula",
+          "forecast_origins": 74,
+          "mean_energy_score": 0.0914780605879968,
+          "mean_variogram_score": 0.5842037423070133,
+          "joint_var_es_score": -0.947723855651987,
+          "var_violation_rate": 0.027027027027027,
+          "model_label": "Student-t copula",
+          "model_family": "Conventional",
+          "energy_rank": 4.0,
+          "variogram_rank": 7.0
+        },
+        {
+          "model_id": "student_t_elliptical",
+          "forecast_origins": 74,
+          "mean_energy_score": 0.0916303297606745,
+          "mean_variogram_score": 0.5785551590952084,
+          "joint_var_es_score": -0.9490638163121364,
+          "var_violation_rate": 0.0405405405405405,
+          "model_label": "Student-t elliptical",
+          "model_family": "Conventional",
+          "energy_rank": 5.0,
+          "variogram_rank": 5.0
+        },
+        {
+          "model_id": "historical_iid",
+          "forecast_origins": 74,
+          "mean_energy_score": 0.0917321349106089,
+          "mean_variogram_score": 0.5716001280280837,
+          "joint_var_es_score": -0.9460649850112982,
+          "var_violation_rate": 0.027027027027027,
+          "model_label": "Historical IID",
+          "model_family": "Conventional",
+          "energy_rank": 6.0,
+          "variogram_rank": 4.0
+        },
+        {
+          "model_id": "gaussian_shrinkage",
+          "forecast_origins": 74,
+          "mean_energy_score": 0.0918030175091692,
+          "mean_variogram_score": 0.5827298932975461,
+          "joint_var_es_score": -0.9485461151535428,
+          "var_violation_rate": 0.0405405405405405,
+          "model_label": "Gaussian shrinkage",
+          "model_family": "Conventional",
+          "energy_rank": 7.0,
+          "variogram_rank": 6.0
+        },
+        {
+          "model_id": "stage1_switching_factor_validation_v1",
+          "forecast_origins": 74,
+          "mean_energy_score": 0.09431537953403446,
+          "mean_variogram_score": 0.5886385781509599,
+          "joint_var_es_score": -0.9491237156405643,
+          "var_violation_rate": 0.013513513513513514,
+          "model_label": "Stage 1 switching factor",
+          "model_family": "Structured",
+          "energy_rank": 8.0,
+          "variogram_rank": 8.0
+        }
+      ],
+      "paired_intervals": [
+        {
+          "baseline_model_id": "filtered_historical_ewma",
+          "metric": "energy_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": 0.0045767439994174,
+          "ci_lower": 0.0016695457693681,
+          "ci_upper": 0.0074708812475907,
+          "bootstrap_standard_error": 0.0015002595758601,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Filtered historical",
+          "metric_label": "Energy",
+          "interval_excludes_zero": true,
+          "direction": "Stage 1 worse"
+        },
+        {
+          "baseline_model_id": "filtered_historical_ewma",
+          "metric": "variogram_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": 0.0466143344398234,
+          "ci_lower": 0.0092198951280671,
+          "ci_upper": 0.0848979856359389,
+          "bootstrap_standard_error": 0.0192198458050832,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Filtered historical",
+          "metric_label": "Variogram",
+          "interval_excludes_zero": true,
+          "direction": "Stage 1 worse"
+        },
+        {
+          "baseline_model_id": "filtered_historical_ewma",
+          "metric": "joint_var_es_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": -0.0013661588990283,
+          "ci_lower": -0.0083591283086658,
+          "ci_upper": 0.004220794284372,
+          "bootstrap_standard_error": 0.0032453497055687,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Filtered historical",
+          "metric_label": "Joint VaR-ES",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "gaussian_shrinkage",
+          "metric": "energy_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": 0.0025123620248652,
+          "ci_lower": -0.0010763668932178,
+          "ci_upper": 0.0056934393606958,
+          "bootstrap_standard_error": 0.0017336234322883,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Gaussian shrinkage",
+          "metric_label": "Energy",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "gaussian_shrinkage",
+          "metric": "variogram_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": 0.0059086848534138,
+          "ci_lower": -0.0685834584175895,
+          "ci_upper": 0.0664147723310186,
+          "bootstrap_standard_error": 0.0340927782381409,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Gaussian shrinkage",
+          "metric_label": "Variogram",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "gaussian_shrinkage",
+          "metric": "joint_var_es_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": -0.0005776004870214,
+          "ci_lower": -0.0082268120528704,
+          "ci_upper": 0.0064823571725875,
+          "bootstrap_standard_error": 0.0037740769636749,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Gaussian shrinkage",
+          "metric_label": "Joint VaR-ES",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "historical_iid",
+          "metric": "energy_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": 0.0025832446234255,
+          "ci_lower": -0.0007168346690861,
+          "ci_upper": 0.0055533135822941,
+          "bootstrap_standard_error": 0.0016008688724104,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Historical IID",
+          "metric_label": "Energy",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "historical_iid",
+          "metric": "variogram_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": 0.0170384501228762,
+          "ci_lower": -0.0460908967433104,
+          "ci_upper": 0.070848397253409,
+          "bootstrap_standard_error": 0.0300939008314827,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Historical IID",
+          "metric_label": "Variogram",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "historical_iid",
+          "metric": "joint_var_es_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": -0.0030587306292663,
+          "ci_lower": -0.0113369734426875,
+          "ci_upper": 0.0042835980979717,
+          "bootstrap_standard_error": 0.0039827333188398,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Historical IID",
+          "metric_label": "Joint VaR-ES",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "moving_block_20",
+          "metric": "energy_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": 0.0045040074290558,
+          "ci_lower": 0.0026615260799422,
+          "ci_upper": 0.0063518521362527,
+          "bootstrap_standard_error": 0.0009377018896069,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Moving block",
+          "metric_label": "Energy",
+          "interval_excludes_zero": true,
+          "direction": "Stage 1 worse"
+        },
+        {
+          "baseline_model_id": "moving_block_20",
+          "metric": "variogram_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": 0.0564127365551598,
+          "ci_lower": 0.0202787270495725,
+          "ci_upper": 0.0957399901833586,
+          "bootstrap_standard_error": 0.0195081177827658,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Moving block",
+          "metric_label": "Variogram",
+          "interval_excludes_zero": true,
+          "direction": "Stage 1 worse"
+        },
+        {
+          "baseline_model_id": "moving_block_20",
+          "metric": "joint_var_es_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": -9.141543690447216e-05,
+          "ci_lower": -0.0086618057565861,
+          "ci_upper": 0.007442411268175,
+          "bootstrap_standard_error": 0.0041650051862023,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Moving block",
+          "metric_label": "Joint VaR-ES",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "student_t_copula",
+          "metric": "energy_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": 0.0028373189460376,
+          "ci_lower": -0.0007848209989739,
+          "ci_upper": 0.0059814947052433,
+          "bootstrap_standard_error": 0.001714162780709,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Student-t copula",
+          "metric_label": "Energy",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "student_t_copula",
+          "metric": "variogram_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": 0.0044348358439466,
+          "ci_lower": -0.070705850630799,
+          "ci_upper": 0.064445684945892,
+          "bootstrap_standard_error": 0.0346941034427538,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Student-t copula",
+          "metric_label": "Variogram",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "student_t_copula",
+          "metric": "joint_var_es_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": -0.0013998599885772,
+          "ci_lower": -0.0106165395156247,
+          "ci_upper": 0.0064019844192168,
+          "bootstrap_standard_error": 0.0043341815735696,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Student-t copula",
+          "metric_label": "Joint VaR-ES",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "student_t_elliptical",
+          "metric": "energy_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": 0.0026850497733599,
+          "ci_lower": -0.0008976145380407,
+          "ci_upper": 0.0058338792125697,
+          "bootstrap_standard_error": 0.0017280408033048,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Student-t elliptical",
+          "metric_label": "Energy",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "student_t_elliptical",
+          "metric": "variogram_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": 0.0100834190557515,
+          "ci_lower": -0.0618113072810096,
+          "ci_upper": 0.068346027033306,
+          "bootstrap_standard_error": 0.0329803217346814,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Student-t elliptical",
+          "metric_label": "Variogram",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "student_t_elliptical",
+          "metric": "joint_var_es_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": -5.989932842787938e-05,
+          "ci_lower": -0.0075442779367235,
+          "ci_upper": 0.0068175384224092,
+          "bootstrap_standard_error": 0.003699191950779,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "Student-t elliptical",
+          "metric_label": "Joint VaR-ES",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "var1_residual_bootstrap",
+          "metric": "energy_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": 0.003079122283354,
+          "ci_lower": 4.665090821961871e-05,
+          "ci_upper": 0.005865540601653,
+          "bootstrap_standard_error": 0.0014770019603315,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "VAR residual",
+          "metric_label": "Energy",
+          "interval_excludes_zero": true,
+          "direction": "Stage 1 worse"
+        },
+        {
+          "baseline_model_id": "var1_residual_bootstrap",
+          "metric": "variogram_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": 0.0253379681198729,
+          "ci_lower": -0.0288820670767296,
+          "ci_upper": 0.0732622493642121,
+          "bootstrap_standard_error": 0.0264044632543651,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "VAR residual",
+          "metric_label": "Variogram",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        },
+        {
+          "baseline_model_id": "var1_residual_bootstrap",
+          "metric": "joint_var_es_score",
+          "difference_definition": "stage1_minus_stage0",
+          "lower_is_better": true,
+          "paired_origins": 74,
+          "origin_block_length": 4,
+          "bootstrap_replications": 10000,
+          "mean_difference": -0.0005884117183377,
+          "ci_lower": -0.0101655385755065,
+          "ci_upper": 0.006818396086398,
+          "bootstrap_standard_error": 0.0043515019747431,
+          "directional_interval_favors_stage1": false,
+          "multiplicity_adjusted": false,
+          "baseline_label": "VAR residual",
+          "metric_label": "Joint VaR-ES",
+          "interval_excludes_zero": false,
+          "direction": "Inconclusive"
+        }
+      ],
+      "state_profiles": [
+        {
+          "state": 0,
+          "effective_observations": 176.17582847474307,
+          "occupancy": 0.052324273381272,
+          "weighted_market_mean_per_interval": -0.0013167676357574,
+          "weighted_market_volatility_per_interval": 0.0263914083744546,
+          "state_label": "State 0"
+        },
+        {
+          "state": 1,
+          "effective_observations": 942.1924779313024,
+          "occupancy": 0.2798314457770426,
+          "weighted_market_mean_per_interval": -0.0002149475010322,
+          "weighted_market_volatility_per_interval": 0.0100111653320635,
+          "state_label": "State 1"
+        },
+        {
+          "state": 2,
+          "effective_observations": 880.9983558855361,
+          "occupancy": 0.2616567733547775,
+          "weighted_market_mean_per_interval": 0.0006731685955202,
+          "weighted_market_volatility_per_interval": 0.0083987864542014,
+          "state_label": "State 2"
+        },
+        {
+          "state": 3,
+          "effective_observations": 1367.6333377084857,
+          "occupancy": 0.4061875074869277,
+          "weighted_market_mean_per_interval": 0.0007117135315459,
+          "weighted_market_volatility_per_interval": 0.0054755114415863,
+          "state_label": "State 3"
+        }
+      ],
+      "stage2_pilot": [
+        {
+          "model_variant": "base",
+          "origins": 4,
+          "mean_energy_score": 0.0920487515864791,
+          "mean_variogram_score": 0.7072089236556681,
+          "joint_var_es_score": -0.934902319945545,
+          "var_violation_rate": 0.0,
+          "pilot": true,
+          "superiority_claim_permitted": false,
+          "variant_label": "Base DDPM"
+        },
+        {
+          "model_variant": "tail_weighted",
+          "origins": 4,
+          "mean_energy_score": 0.09167996787113185,
+          "mean_variogram_score": 0.6935241484921238,
+          "joint_var_es_score": -0.933368213596135,
+          "var_violation_rate": 0.0,
+          "pilot": true,
+          "superiority_claim_permitted": false,
+          "variant_label": "Tail-weighted DDPM"
+        }
+      ],
+      "decisions": [
+        {
+          "strategy_id": "equal_weight",
+          "wasserstein_radius": 0.0,
+          "completed_origins": 74,
+          "expected_origins": 74,
+          "complete_sequence": true,
+          "mean_gross_return": 0.0062849329518187,
+          "mean_net_return": 0.0062653708414274,
+          "cumulative_net_return": 0.5563549429142904,
+          "realized_value_at_risk": 0.0414322597507326,
+          "realized_expected_shortfall": 0.0454701752243255,
+          "maximum_drawdown": 0.087693641458061,
+          "mean_l1_turnover": 0.0195621103913348,
+          "total_l1_turnover": 1.4475961689587804,
+          "mean_transaction_cost": 1.956211039133487e-05,
+          "total_transaction_cost": 0.0014475961689587,
+          "worst_block_origin_date": "2018-11-15",
+          "worst_block_net_return": -0.0489011285836011,
+          "strategy_label": "Equal weight",
+          "strategy_family": "Benchmark"
+        },
+        {
+          "strategy_id": "historical_empirical_cvar",
+          "wasserstein_radius": 0.0,
+          "completed_origins": 74,
+          "expected_origins": 74,
+          "complete_sequence": true,
+          "mean_gross_return": 0.0051149869013062,
+          "mean_net_return": 0.0050677501467866,
+          "cumulative_net_return": 0.4472498779618092,
+          "realized_value_at_risk": 0.0165588903347419,
+          "realized_expected_shortfall": 0.0176688150409637,
+          "maximum_drawdown": 0.0341111542240349,
+          "mean_l1_turnover": 0.0472367545195544,
+          "total_l1_turnover": 3.4955198344470326,
+          "mean_transaction_cost": 4.7236754519554495e-05,
+          "total_transaction_cost": 0.003495519834447,
+          "worst_block_origin_date": "2018-01-30",
+          "worst_block_net_return": -0.0197091138252291,
+          "strategy_label": "Historical CVaR",
+          "strategy_family": "Benchmark"
+        },
+        {
+          "strategy_id": "stage1_empirical_cvar",
+          "wasserstein_radius": 0.0,
+          "completed_origins": 74,
+          "expected_origins": 74,
+          "complete_sequence": true,
+          "mean_gross_return": 0.003866801781051,
+          "mean_net_return": 0.0036979566916815,
+          "cumulative_net_return": 0.3083145382678618,
+          "realized_value_at_risk": 0.0143075694181556,
+          "realized_expected_shortfall": 0.0207382449148581,
+          "maximum_drawdown": 0.0478238855295609,
+          "mean_l1_turnover": 0.1688450893695187,
+          "total_l1_turnover": 12.49453661334439,
+          "mean_transaction_cost": 0.0001688450893695,
+          "total_transaction_cost": 0.0124945366133443,
+          "worst_block_origin_date": "2018-01-30",
+          "worst_block_net_return": -0.0258268984383196,
+          "strategy_label": "Stage 1 CVaR",
+          "strategy_family": "Stage 1"
+        },
+        {
+          "strategy_id": "stage1_wdro_rho_0.0001",
+          "wasserstein_radius": 0.0001,
+          "completed_origins": 74,
+          "expected_origins": 74,
+          "complete_sequence": true,
+          "mean_gross_return": 0.003866801781051,
+          "mean_net_return": 0.0036979566916815,
+          "cumulative_net_return": 0.3083145382678618,
+          "realized_value_at_risk": 0.0143075694181556,
+          "realized_expected_shortfall": 0.0207382449148581,
+          "maximum_drawdown": 0.0478238855295609,
+          "mean_l1_turnover": 0.1688450893695187,
+          "total_l1_turnover": 12.49453661334439,
+          "mean_transaction_cost": 0.0001688450893695,
+          "total_transaction_cost": 0.0124945366133443,
+          "worst_block_origin_date": "2018-01-30",
+          "worst_block_net_return": -0.0258268984383196,
+          "strategy_label": "WDRO ρ=.0001",
+          "strategy_family": "WDRO sensitivity"
+        },
+        {
+          "strategy_id": "stage1_wdro_rho_0.00025",
+          "wasserstein_radius": 0.00025,
+          "completed_origins": 74,
+          "expected_origins": 74,
+          "complete_sequence": true,
+          "mean_gross_return": 0.003866801781051,
+          "mean_net_return": 0.0036979566916815,
+          "cumulative_net_return": 0.3083145382678618,
+          "realized_value_at_risk": 0.0143075694181556,
+          "realized_expected_shortfall": 0.0207382449148581,
+          "maximum_drawdown": 0.0478238855295609,
+          "mean_l1_turnover": 0.1688450893695187,
+          "total_l1_turnover": 12.49453661334439,
+          "mean_transaction_cost": 0.0001688450893695,
+          "total_transaction_cost": 0.0124945366133443,
+          "worst_block_origin_date": "2018-01-30",
+          "worst_block_net_return": -0.0258268984383196,
+          "strategy_label": "WDRO ρ=.00025",
+          "strategy_family": "WDRO sensitivity"
+        },
+        {
+          "strategy_id": "stage1_wdro_rho_0.0005",
+          "wasserstein_radius": 0.0005,
+          "completed_origins": 74,
+          "expected_origins": 74,
+          "complete_sequence": true,
+          "mean_gross_return": 0.0038576090349813,
+          "mean_net_return": 0.0036889774366312,
+          "cumulative_net_return": 0.3074361900584867,
+          "realized_value_at_risk": 0.0143075694181556,
+          "realized_expected_shortfall": 0.0207382449148581,
+          "maximum_drawdown": 0.0478238855295611,
+          "mean_l1_turnover": 0.1686315983500182,
+          "total_l1_turnover": 12.478738277901348,
+          "mean_transaction_cost": 0.00016863159835,
+          "total_transaction_cost": 0.0124787382779013,
+          "worst_block_origin_date": "2018-01-30",
+          "worst_block_net_return": -0.0258268984383196,
+          "strategy_label": "WDRO ρ=.0005",
+          "strategy_family": "WDRO sensitivity"
+        },
+        {
+          "strategy_id": "stage1_wdro_rho_0.001",
+          "wasserstein_radius": 0.001,
+          "completed_origins": 74,
+          "expected_origins": 74,
+          "complete_sequence": true,
+          "mean_gross_return": 0.0038576090349813,
+          "mean_net_return": 0.0036889774366312,
+          "cumulative_net_return": 0.3074361900584867,
+          "realized_value_at_risk": 0.0143075694181556,
+          "realized_expected_shortfall": 0.0207382449148581,
+          "maximum_drawdown": 0.0478238855295611,
+          "mean_l1_turnover": 0.1686315983500182,
+          "total_l1_turnover": 12.478738277901348,
+          "mean_transaction_cost": 0.00016863159835,
+          "total_transaction_cost": 0.0124787382779013,
+          "worst_block_origin_date": "2018-01-30",
+          "worst_block_net_return": -0.0258268984383196,
+          "strategy_label": "WDRO ρ=.001",
+          "strategy_family": "WDRO sensitivity"
+        }
+      ],
+      "counterfactual": [
+        {
+          "model_id": "known_scm_ground_truth",
+          "outcome": "equity",
+          "effect_type": "total",
+          "tail_loss_sign": -1.0,
+          "ate_terminal": 0.0595330994166432,
+          "cumulative_ate": -4.12901597471562,
+          "tail_effect": 1.7588983581917716,
+          "ate_error": null,
+          "path_rmse": null,
+          "tail_effect_error": null,
+          "model_label": "known scm ground truth",
+          "outcome_label": "Equity"
+        },
+        {
+          "model_id": "oracle_aap",
+          "outcome": "equity",
+          "effect_type": "total",
+          "tail_loss_sign": -1.0,
+          "ate_terminal": 0.0595330994166432,
+          "cumulative_ate": -4.12901597471562,
+          "tail_effect": 1.7588983581917716,
+          "ate_error": 0.0,
+          "path_rmse": 4.084527897230527e-17,
+          "tail_effect_error": 0.0,
+          "model_label": "oracle aap",
+          "outcome_label": "Equity"
+        },
+        {
+          "model_id": "reduced_yield_transmission",
+          "outcome": "equity",
+          "effect_type": "total",
+          "tail_loss_sign": -1.0,
+          "ate_terminal": 0.0339459490623773,
+          "cumulative_ate": -2.848332299644991,
+          "tail_effect": 1.1569934066942835,
+          "ate_error": 0.0255871503542659,
+          "path_rmse": 0.1884559353591176,
+          "tail_effect_error": 0.6019049514974881,
+          "model_label": "reduced yield transmission",
+          "outcome_label": "Equity"
+        },
+        {
+          "model_id": "no_lagged_equity_feedback",
+          "outcome": "equity",
+          "effect_type": "total",
+          "tail_loss_sign": -1.0,
+          "ate_terminal": -0.0933190557883947,
+          "cumulative_ate": -8.420777255550501,
+          "tail_effect": 4.973135535260013,
+          "ate_error": 0.152852155205038,
+          "path_rmse": 0.278183635770336,
+          "tail_effect_error": 3.2142371770682416,
+          "model_label": "no lagged equity feedback",
+          "outcome_label": "Equity"
+        },
+        {
+          "model_id": "known_scm_controlled_direct_effect",
+          "outcome": "equity",
+          "effect_type": "controlled",
+          "tail_loss_sign": -1.0,
+          "ate_terminal": 0.0,
+          "cumulative_ate": 0.0,
+          "tail_effect": 0.0,
+          "ate_error": null,
+          "path_rmse": null,
+          "tail_effect_error": null,
+          "model_label": "known scm controlled direct effect",
+          "outcome_label": "Equity"
+        },
+        {
+          "model_id": "known_scm_ground_truth",
+          "outcome": "volatility",
+          "effect_type": "total",
+          "tail_loss_sign": 1.0,
+          "ate_terminal": -0.0179935579482623,
+          "cumulative_ate": 1.4909058769164785,
+          "tail_effect": 1.319054026421318,
+          "ate_error": null,
+          "path_rmse": null,
+          "tail_effect_error": null,
+          "model_label": "known scm ground truth",
+          "outcome_label": "Volatility"
+        },
+        {
+          "model_id": "oracle_aap",
+          "outcome": "volatility",
+          "effect_type": "total",
+          "tail_loss_sign": 1.0,
+          "ate_terminal": -0.0179935579482623,
+          "cumulative_ate": 1.4909058769164785,
+          "tail_effect": 1.319054026421318,
+          "ate_error": 0.0,
+          "path_rmse": 2.1103821920200808e-17,
+          "tail_effect_error": 0.0,
+          "model_label": "oracle aap",
+          "outcome_label": "Volatility"
+        },
+        {
+          "model_id": "reduced_yield_transmission",
+          "outcome": "volatility",
+          "effect_type": "total",
+          "tail_loss_sign": 1.0,
+          "ate_terminal": -0.0098694163209402,
+          "cumulative_ate": 0.8621819225753903,
+          "tail_effect": 0.7724356083804818,
+          "ate_error": 0.0081241416273221,
+          "path_rmse": 0.0730649541514644,
+          "tail_effect_error": 0.5466184180408362,
+          "model_label": "reduced yield transmission",
+          "outcome_label": "Volatility"
+        },
+        {
+          "model_id": "no_lagged_equity_feedback",
+          "outcome": "volatility",
+          "effect_type": "total",
+          "tail_loss_sign": 1.0,
+          "ate_terminal": 0.0302678672973613,
+          "cumulative_ate": 2.9462866410356723,
+          "tail_effect": 4.7545014387282745,
+          "ate_error": 0.0482614252456237,
+          "path_rmse": 0.0931217033183086,
+          "tail_effect_error": 3.4354474123069565,
+          "model_label": "no lagged equity feedback",
+          "outcome_label": "Volatility"
+        },
+        {
+          "model_id": "known_scm_controlled_direct_effect",
+          "outcome": "volatility",
+          "effect_type": "controlled",
+          "tail_loss_sign": 1.0,
+          "ate_terminal": 0.0,
+          "cumulative_ate": 0.0,
+          "tail_effect": 0.0,
+          "ate_error": null,
+          "path_rmse": null,
+          "tail_effect_error": null,
+          "model_label": "known scm controlled direct effect",
+          "outcome_label": "Volatility"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "phase0",
+      "label": "Phase 0 public-data receipt",
+      "path": "artifacts/phase0/run_receipt.json",
+      "query": {
+        "description": "Loads the frozen public-data receipt and quality-gate counts.",
+        "engine": "duckdb",
+        "language": "sql",
+        "sql": "SELECT COUNT(*) AS aligned_observations, 23 AS quality_gates_passed FROM read_parquet('data/processed/model_matrix.parquet')",
+        "tables_used": [
+          "data/processed/model_matrix.parquet",
+          "artifacts/phase0/run_receipt.json"
+        ],
+        "filters": [
+          "Training and validation eras only for modeling evidence",
+          "Phase 0 constructs and quality-checks post-2019 rows, but modeling and evaluation keep them governed-excluded"
+        ],
+        "metric_definitions": [
+          "Aligned observations are complete common-endpoint rows in the model matrix.",
+          "Quality gates passed is the count of registered Phase 0 checks returning true."
+        ]
+      }
+    },
+    {
+      "id": "stage0_stage1",
+      "label": "Validation scenario scores",
+      "path": "artifacts/stage0_baselines/summary.csv",
+      "query": {
+        "description": "Combines reviewed Stage 0 and Stage 1 validation summary metrics.",
+        "engine": "duckdb",
+        "language": "sql",
+        "sql": "WITH s0 AS (SELECT model_id, forecast_origins, mean_energy_score, mean_variogram_score, joint_var_es_score, var_violation_rate FROM read_csv_auto('artifacts/stage0_baselines/summary.csv')), s1 AS (SELECT model_id, origins AS forecast_origins, mean_energy_score, mean_variogram_score, joint_var_es_score, coverage.observed_violation_rate AS var_violation_rate FROM read_json_auto('artifacts/stage1_switching_factor/summary.json')) SELECT * FROM s0 UNION ALL SELECT * FROM s1",
+        "tables_used": [
+          "artifacts/stage0_baselines/summary.csv",
+          "artifacts/stage1_switching_factor/summary.json"
+        ],
+        "filters": [
+          "74 non-overlapping validation origins",
+          "1,000 scenarios per origin"
+        ],
+        "metric_definitions": [
+          "Energy and variogram scores use the geometrically compounded 15-asset H=20 return vector and are lower-is-better.",
+          "VaR, ES, joint VaR-ES, and violation rates use a frozen equal-weight portfolio with one fifteenth in each asset.",
+          "VaR violation rate is observed breaches divided by 74 validation origins."
+        ]
+      }
+    },
+    {
+      "id": "stage3",
+      "label": "Paired moving-block intervals",
+      "path": "artifacts/stage3_comparison/paired_metric_intervals.csv",
+      "query": {
+        "description": "Reads paired Stage 1 minus Stage 0 interval estimates.",
+        "engine": "duckdb",
+        "language": "sql",
+        "sql": "SELECT * FROM read_csv_auto('artifacts/stage3_comparison/paired_metric_intervals.csv')",
+        "tables_used": [
+          "artifacts/stage3_comparison/paired_metric_intervals.csv"
+        ],
+        "filters": [
+          "Circular moving-block bootstrap",
+          "Block length 4",
+          "10,000 replications",
+          "No multiplicity adjustment"
+        ],
+        "metric_definitions": [
+          "Mean difference equals Stage 1 score minus Stage 0 score.",
+          "For lower-is-better metrics, a positive interval favors Stage 0."
+        ]
+      }
+    },
+    {
+      "id": "stage1_states",
+      "label": "Training-only latent-state profiles",
+      "path": "artifacts/stage1_switching_factor/state_profiles.csv",
+      "query": {
+        "description": "Reads state occupancy, mean, and volatility profiles from the frozen Stage 1 fit.",
+        "engine": "duckdb",
+        "language": "sql",
+        "sql": "SELECT * FROM read_csv_auto('artifacts/stage1_switching_factor/state_profiles.csv')",
+        "tables_used": [
+          "artifacts/stage1_switching_factor/state_profiles.csv"
+        ],
+        "filters": [
+          "Training era only"
+        ],
+        "metric_definitions": [
+          "Occupancy is the mean smoothed posterior state probability in training.",
+          "State labels are statistical identifiers, not causal economic regimes."
+        ]
+      }
+    },
+    {
+      "id": "stage2",
+      "label": "One-shot temporal DDPM pilot",
+      "path": "artifacts/stage2_public_core_pilot/summary.json",
+      "query": {
+        "description": "Reads the two four-origin engineering-pilot checkpoints.",
+        "engine": "duckdb",
+        "language": "sql",
+        "sql": "SELECT unnest(variants) FROM read_json_auto('artifacts/stage2_public_core_pilot/summary.json')",
+        "tables_used": [
+          "artifacts/stage2_public_core_pilot/summary.json"
+        ],
+        "filters": [
+          "Four late-validation reporting origins",
+          "Superiority claim prohibited"
+        ],
+        "metric_definitions": [
+          "Pilot scores are means over four reporting origins and are not ranking evidence."
+        ]
+      }
+    },
+    {
+      "id": "stage5",
+      "label": "Validation portfolio decisions",
+      "path": "artifacts/stage5_decisions/summary.csv",
+      "query": {
+        "description": "Reads transaction-cost-aware validation decision outcomes.",
+        "engine": "duckdb",
+        "language": "sql",
+        "sql": "SELECT * FROM read_csv_auto('artifacts/stage5_decisions/summary.csv')",
+        "tables_used": [
+          "artifacts/stage5_decisions/summary.csv"
+        ],
+        "filters": [
+          "74 validation blocks",
+          "Long-only and fully invested",
+          "95% CVaR",
+          "Post-2019 rows governed-excluded from decisions"
+        ],
+        "metric_definitions": [
+          "Realized ES is the integral of the right-continuous empirical loss quantile from 95% to 100%, divided by 5%; fractional threshold mass is included when required.",
+          "Maximum drawdown is computed from the net block-return wealth path.",
+          "Turnover is the L1 change in portfolio weights.",
+          "Strategy rankings are descriptive over 74 block outcomes; no paired sampling interval was computed."
+        ]
+      }
+    },
+    {
+      "id": "stage6",
+      "label": "Semi-synthetic counterfactual experiment",
+      "path": "artifacts/stage6_counterfactual/effect_summary.csv",
+      "query": {
+        "description": "Reads paired abduction-action-prediction errors under known and misspecified SCMs.",
+        "engine": "duckdb",
+        "language": "sql",
+        "sql": "SELECT * FROM read_csv_auto('artifacts/stage6_counterfactual/effect_summary.csv')",
+        "tables_used": [
+          "artifacts/stage6_counterfactual/effect_summary.csv"
+        ],
+        "filters": [
+          "5,000 paired paths",
+          "Horizon 20",
+          "Known semi-synthetic SCM only"
+        ],
+        "metric_definitions": [
+          "Path RMSE compares the estimated intervention-effect path with known ground truth.",
+          "Path loss is s times the 20-step outcome sum: s=-1 for equity and s=+1 for volatility.",
+          "Tail effect is treated minus reference 95% ES of path loss; tail-effect error is its absolute error against known truth.",
+          "Oracle error validates numerical recovery by construction and is not real-market identification."
+        ]
+      }
+    }
+  ],
+  "package_info": {
+    "artifact_id": "crisisforge-validation-report-v1",
+    "snapshot_kind": "frozen validation research snapshot",
+    "test_set_opened": false
+  }
+}

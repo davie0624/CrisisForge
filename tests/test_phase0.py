@@ -102,9 +102,7 @@ def test_interval_audit_records_source_observation_counts() -> None:
     audit = build_common_interval_audit(
         endpoints,
         {
-            "equity": pd.to_datetime(
-                ["2024-01-02", "2024-01-03", "2024-01-04"]
-            ),
+            "equity": pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04"]),
             "rates": endpoints,
         },
     )
@@ -207,9 +205,7 @@ def test_raw_allowlist_rejects_uncatalogued_snapshot(tmp_path: Path) -> None:
     ):
         (tmp_path / relative_path).write_text("", encoding="utf-8")
     catalog = {
-        "target_return_sources": [
-            {"id": "core", "provider": "french_research_zip"}
-        ],
+        "target_return_sources": [{"id": "core", "provider": "french_research_zip"}],
         "macro_sources": [{"id": "rates"}],
     }
     assert _raw_allowlist_report(tmp_path, catalog)["passed"]
@@ -238,9 +234,7 @@ def test_target_calendar_quality_surfaces_long_internal_gap() -> None:
     downloaded = {
         "industries": pd.DataFrame(
             {
-                "date": pd.to_datetime(
-                    ["2020-01-01", "2020-01-02", "2021-01-04"]
-                ),
+                "date": pd.to_datetime(["2020-01-01", "2020-01-02", "2021-01-04"]),
                 "industry": [0.0, 0.0, 0.0],
             }
         )
@@ -259,7 +253,4 @@ def test_target_calendar_quality_surfaces_long_internal_gap() -> None:
         macro,
         requested_start=pd.Timestamp("2020-01-01"),
     )
-    assert (
-        quality["sources"]["industries"]["maximum_internal_gap_calendar_days"]
-        > 300
-    )
+    assert quality["sources"]["industries"]["maximum_internal_gap_calendar_days"] > 300

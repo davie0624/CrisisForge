@@ -34,9 +34,7 @@ def test_cached_snapshot_rejects_hash_mismatch(tmp_path: Path) -> None:
 def test_cached_snapshot_rejects_row_count_mismatch(tmp_path: Path) -> None:
     path = tmp_path / "source.csv"
     download = DownloadedFrame(
-        frame=pd.DataFrame(
-            {"date": pd.to_datetime(["2024-01-01"]), "value": [1.0]}
-        ),
+        frame=pd.DataFrame({"date": pd.to_datetime(["2024-01-01"]), "value": [1.0]}),
         source_urls=("https://example.invalid/source.csv",),
         provider="test",
         retrieved_at_utc="2024-01-02T00:00:00+00:00",
@@ -56,9 +54,7 @@ def test_cached_snapshot_binds_catalog_identity_and_range(tmp_path: Path) -> Non
     download = DownloadedFrame(
         frame=pd.DataFrame(
             {
-                "date": pd.to_datetime(
-                    ["2020-01-01", "2020-01-02", "2020-01-03"]
-                ),
+                "date": pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-03"]),
                 "value": [1.0, 2.0, 3.0],
             }
         ),

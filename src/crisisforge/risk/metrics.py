@@ -111,9 +111,7 @@ def fit_co_crash_thresholds(
     """Freeze marginal crash thresholds using training outcomes only."""
     returns = np.asarray(training_cumulative_returns, dtype=float)
     if returns.ndim != 2 or len(returns) == 0:
-        raise ValueError(
-            "training_cumulative_returns must have shape (observations, assets)"
-        )
+        raise ValueError("training_cumulative_returns must have shape (observations, assets)")
     if not np.isfinite(returns).all():
         raise ValueError("training cumulative returns must be finite")
     if not 0.0 < marginal_quantile < 0.5:

@@ -52,10 +52,7 @@ def build_registered_interventions(
         float(controlled["mediator_value"]),
         int(controlled["active_steps"]),
     )
-    assignments = {
-        str(mediator): dict(mediator_schedule)
-        for mediator in controlled["mediators"]
-    }
+    assignments = {str(mediator): dict(mediator_schedule) for mediator in controlled["mediators"]}
     return (
         Intervention(policy=treatment_policy, label="total_policy_treatment"),
         Intervention(
@@ -94,6 +91,7 @@ def _effect_record(
     model_id: str,
     outcome: str,
     effect_type: str,
+    tail_loss_sign: float,
     effect: Any,
     error: Any | None,
 ) -> dict[str, Any]:
@@ -101,6 +99,7 @@ def _effect_record(
         "model_id": model_id,
         "outcome": outcome,
         "effect_type": effect_type,
+        "tail_loss_sign": tail_loss_sign,
         "ate_terminal": effect.ate_terminal,
         "cumulative_ate": effect.cumulative_ate,
         "tail_effect": effect.tail_effect,
@@ -128,6 +127,14 @@ def run_counterfactual_evaluation(
     output_root = project_root / configuration["paths"]["output"]
     output_root.mkdir(parents=True, exist_ok=True)
     confidence = float(experiment["confidence_level"])
+    tail_loss_signs = {
+        str(outcome): float(sign) for outcome, sign in experiment["tail_loss_signs"].items()
+    }
+    expected_outcomes = {"equity", "volatility"}
+    if set(tail_loss_signs) != expected_outcomes:
+        raise ValueError("tail_loss_signs must define exactly equity and volatility")
+    if any(not np.isfinite(sign) or sign == 0.0 for sign in tail_loss_signs.values()):
+        raise ValueError("tail-loss signs must be finite and nonzero")
 
     truth_parameters = SCMParameters(**model_configuration["parameters"])
     truth = RegimeSwitchingSCM(truth_parameters)
@@ -136,8 +143,8 @@ def run_counterfactual_evaluation(
         horizon=int(experiment["horizon"]),
         seed=int(experiment["random_seed"]),
     )
-    total_treatment, controlled_reference, controlled_treatment = (
-        build_registered_interventions(configuration)
+    total_treatment, controlled_reference, controlled_treatment = build_registered_interventions(
+        configuration
     )
     factual = truth.simulate(noise)
     true_total = truth.simulate(noise, total_treatment)
@@ -148,12 +155,14 @@ def run_counterfactual_evaluation(
     summary_rows: list[dict[str, Any]] = []
     path_rows: list[dict[str, Any]] = []
     for outcome in ("equity", "volatility"):
+        loss_sign = tail_loss_signs[outcome]
         truth_effect = estimate_causal_effect(
             factual,
             true_total,
             outcome=outcome,
             effect_type="total",
             confidence_level=confidence,
+            loss_sign=loss_sign,
         )
         oracle_effect = estimate_causal_effect(
             factual,
@@ -161,6 +170,7 @@ def run_counterfactual_evaluation(
             outcome=outcome,
             effect_type="total",
             confidence_level=confidence,
+            loss_sign=loss_sign,
         )
         oracle_error = evaluate_counterfactual_error(
             factual=factual,
@@ -169,12 +179,14 @@ def run_counterfactual_evaluation(
             outcome=outcome,
             effect_type="total",
             confidence_level=confidence,
+            loss_sign=loss_sign,
         )
         summary_rows.append(
             _effect_record(
                 model_id="known_scm_ground_truth",
                 outcome=outcome,
                 effect_type="total",
+                tail_loss_sign=loss_sign,
                 effect=truth_effect,
                 error=None,
             )
@@ -184,6 +196,7 @@ def run_counterfactual_evaluation(
                 model_id="oracle_aap",
                 outcome=outcome,
                 effect_type="total",
+                tail_loss_sign=loss_sign,
                 effect=oracle_effect,
                 error=oracle_error,
             )
@@ -209,6 +222,7 @@ def run_counterfactual_evaluation(
                 outcome=outcome,
                 effect_type="total",
                 confidence_level=confidence,
+                loss_sign=loss_sign,
             )
             error = evaluate_counterfactual_error(
                 factual=factual,
@@ -217,12 +231,14 @@ def run_counterfactual_evaluation(
                 outcome=outcome,
                 effect_type="total",
                 confidence_level=confidence,
+                loss_sign=loss_sign,
             )
             summary_rows.append(
                 _effect_record(
                     model_id=model_id,
                     outcome=outcome,
                     effect_type="total",
+                    tail_loss_sign=loss_sign,
                     effect=effect,
                     error=error,
                 )
@@ -244,12 +260,14 @@ def run_counterfactual_evaluation(
             outcome=outcome,
             effect_type="controlled",
             confidence_level=confidence,
+            loss_sign=loss_sign,
         )
         summary_rows.append(
             _effect_record(
                 model_id="known_scm_controlled_direct_effect",
                 outcome=outcome,
                 effect_type="controlled",
+                tail_loss_sign=loss_sign,
                 effect=controlled_effect,
                 error=None,
             )
@@ -274,31 +292,28 @@ def run_counterfactual_evaluation(
     paths.to_csv(mean_paths_path, index=False)
     oracle_errors = summary.loc[summary["model_id"] == "oracle_aap"]
     maximum_oracle_error = float(
-        oracle_errors[["ate_error", "path_rmse", "tail_effect_error"]]
-        .to_numpy(dtype=float)
-        .max()
+        oracle_errors[["ate_error", "path_rmse", "tail_effect_error"]].to_numpy(dtype=float).max()
     )
     misspecified_errors = summary.loc[
-        summary["model_id"].isin(
-            ["reduced_yield_transmission", "no_lagged_equity_feedback"]
-        )
+        summary["model_id"].isin(["reduced_yield_transmission", "no_lagged_equity_feedback"])
     ]
     result_summary = {
         "experiment_id": experiment["id"],
         "num_paths": int(experiment["num_paths"]),
         "horizon": int(experiment["horizon"]),
         "maximum_oracle_error": maximum_oracle_error,
-        "minimum_misspecified_path_rmse": float(
-            misspecified_errors["path_rmse"].min()
-        ),
-        "maximum_misspecified_path_rmse": float(
-            misspecified_errors["path_rmse"].max()
-        ),
+        "minimum_misspecified_path_rmse": float(misspecified_errors["path_rmse"].min()),
+        "maximum_misspecified_path_rmse": float(misspecified_errors["path_rmse"].max()),
         "misspecified_path_rmse_interpretation": (
             "report the full model/outcome table; min and max are range endpoints"
         ),
         "known_ground_truth_scope": "semi-synthetic only",
         "real_market_causal_identification": False,
+        "tail_loss_signs": tail_loss_signs,
+        "tail_loss_interpretation": {
+            "equity": "lower cumulative equity outcomes are larger losses",
+            "volatility": "higher cumulative volatility outcomes are larger stress losses",
+        },
         "controlled_effect_definition": (
             "treated and reference worlds hold identical mediator schedules"
         ),
@@ -342,9 +357,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=None)
     args = parser.parse_args()
     project_root = (
-        args.project_root.resolve()
-        if args.project_root is not None
-        else project_root_from_module()
+        args.project_root.resolve() if args.project_root is not None else project_root_from_module()
     )
     receipt = run_counterfactual_evaluation(
         project_root,

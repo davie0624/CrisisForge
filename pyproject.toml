@@ -38,6 +38,11 @@ notebooks = [
   "nbclient>=0.10",
   "nbformat>=5.10",
 ]
+reporting = [
+  "matplotlib>=3.9",
+  "pypdf>=5.0",
+  "reportlab>=4.2",
+]
 
 [project.scripts]
 crisisforge-phase0 = "crisisforge.data.pipeline:main"

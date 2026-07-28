@@ -99,9 +99,7 @@ def test_robust_objective_is_nondecreasing_in_radius(
     objectives = np.array([result.objective_value for result in results])
     assert (np.diff(objectives) >= -1e-10).all()
     for radius, result in zip(radii[1:], results[1:], strict=True):
-        expected_penalty = (
-            radius * np.max(np.abs(result.weights)) / (1.0 - 0.80)
-        )
+        expected_penalty = radius * np.max(np.abs(result.weights)) / (1.0 - 0.80)
         assert np.isclose(result.robust_penalty, expected_penalty)
 
 
@@ -133,14 +131,9 @@ def test_robust_lp_matches_direct_grid_objective(
         losses = -scenario_returns[:, :2] @ weights
         candidates = np.unique(losses)
         empirical = min(
-            eta
-            + np.maximum(losses - eta, 0.0).mean() / (1.0 - confidence)
-            for eta in candidates
+            eta + np.maximum(losses - eta, 0.0).mean() / (1.0 - confidence) for eta in candidates
         )
-        direct_objectives[index] = (
-            empirical
-            + radius * np.max(np.abs(weights)) / (1.0 - confidence)
-        )
+        direct_objectives[index] = empirical + radius * np.max(np.abs(weights)) / (1.0 - confidence)
 
     assert result.objective_value <= direct_objectives.min() + 2e-6
     assert np.isclose(

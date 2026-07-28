@@ -82,13 +82,9 @@ def test_factor_model_uses_fixed_training_center_scale_and_signs() -> None:
         pivot = np.argmax(np.abs(component))
         assert component[pivot] >= 0.0
 
-    named = DynamicFactorModel(n_factors=2).fit(
-        pd.DataFrame(training, columns=list("abcde"))
-    )
+    named = DynamicFactorModel(n_factors=2).fit(pd.DataFrame(training, columns=list("abcde")))
     with pytest.raises(ValueError, match="columns or their order"):
-        named.transform(
-            pd.DataFrame(validation, columns=list("bacde"))
-        )
+        named.transform(pd.DataFrame(validation, columns=list("bacde")))
 
 
 def test_log1p_factor_round_trip_and_domain_check() -> None:
@@ -241,9 +237,9 @@ def test_validation_filter_continues_from_training_endpoint() -> None:
             model.factor_model.transform(validation),
         ]
     )
-    reference = model.regime_model.forward_backward(
-        all_factors
-    ).filtered_probabilities[-len(validation) :]
+    reference = model.regime_model.forward_backward(all_factors).filtered_probabilities[
+        -len(validation) :
+    ]
     assert np.allclose(validation_probabilities, reference, atol=1e-11)
 
     changed_future = validation.copy()

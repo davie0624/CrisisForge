@@ -222,9 +222,7 @@ class StickyGaussianHMM:
         log_beta = np.zeros((n_observations, n_states))
         for time in range(n_observations - 2, -1, -1):
             log_beta[time] = logsumexp(
-                log_transition
-                + log_emission[time + 1][None, :]
-                + log_beta[time + 1][None, :],
+                log_transition + log_emission[time + 1][None, :] + log_beta[time + 1][None, :],
                 axis=1,
             )
         log_gamma = log_alpha + log_beta
@@ -311,13 +309,9 @@ class StickyGaussianHMM:
                     updated_covariances[state] = global_covariance
                     continue
                 state_probabilities = weights[:, state]
-                mean = (
-                    state_probabilities[:, None] * observations
-                ).sum(axis=0) / state_weight
+                mean = (state_probabilities[:, None] * observations).sum(axis=0) / state_weight
                 centered = observations - mean
-                covariance = (
-                    (centered * state_probabilities[:, None]).T @ centered
-                ) / state_weight
+                covariance = ((centered * state_probabilities[:, None]).T @ centered) / state_weight
                 updated_means[state] = mean
                 updated_covariances[state] = _regularize_covariance(
                     covariance,
@@ -375,10 +369,7 @@ class StickyGaussianHMM:
             raise ValueError("too few observations for the requested number of states")
 
         seeds = np.random.SeedSequence(self.random_state).spawn(self.n_init)
-        candidates = [
-            self._fit_one(observation_array, seed=seed)
-            for seed in seeds
-        ]
+        candidates = [self._fit_one(observation_array, seed=seed) for seed in seeds]
         objectives = np.asarray([candidate["objective"] for candidate in candidates])
         best_index = int(np.argmax(objectives))
         best = candidates[best_index]
@@ -508,10 +499,7 @@ class StickyGaussianHMM:
         self._check_fitted()
         state_occupancy = self.smoothed_probabilities_.mean(axis=0)
         minimum_covariance_eigenvalue = np.array(
-            [
-                np.linalg.eigvalsh(covariance).min()
-                for covariance in self.emission_covariances_
-            ]
+            [np.linalg.eigvalsh(covariance).min() for covariance in self.emission_covariances_]
         )
         return {
             "state_occupancy": state_occupancy,
@@ -567,9 +555,7 @@ class SwitchingDynamicFactorBaseline:
         self.maximum_spectral_radius = float(maximum_spectral_radius)
         self.observation_ridge = float(observation_ridge)
         self.observation_scale_floor = float(observation_scale_floor)
-        self.residual_correlation_shrinkage = float(
-            residual_correlation_shrinkage
-        )
+        self.residual_correlation_shrinkage = float(residual_correlation_shrinkage)
         self.random_state = int(random_state)
         self.factor_model = DynamicFactorModel(
             n_factors=n_factors,
@@ -605,24 +591,18 @@ class SwitchingDynamicFactorBaseline:
             covariance_floor=self.factor_covariance_floor,
             maximum_spectral_radius=self.maximum_spectral_radius,
         )
-        self.observation_mapping_: RegimeObservationMapping = (
-            fit_regime_observation_mapping(
-                observations,
-                factors,
-                training_probabilities,
-                ridge=self.observation_ridge,
-                correlation_shrinkage=self.residual_correlation_shrinkage,
-                scale_floor=self.observation_scale_floor,
-            )
+        self.observation_mapping_: RegimeObservationMapping = fit_regime_observation_mapping(
+            observations,
+            factors,
+            training_probabilities,
+            ridge=self.observation_ridge,
+            correlation_shrinkage=self.residual_correlation_shrinkage,
+            scale_floor=self.observation_scale_floor,
         )
         self.training_factors_ = factors
         self.training_returns_ = return_array.copy()
-        self.filtered_probabilities_ = (
-            self.regime_model.filtered_probabilities_.copy()
-        )
-        self.smoothed_probabilities_ = (
-            self.regime_model.smoothed_probabilities_.copy()
-        )
+        self.filtered_probabilities_ = self.regime_model.filtered_probabilities_.copy()
+        self.smoothed_probabilities_ = self.regime_model.smoothed_probabilities_.copy()
         self.last_factor_ = factors[-1].copy()
         self.n_assets_ = return_array.shape[1]
         self._is_fitted = True
@@ -650,8 +630,7 @@ class SwitchingDynamicFactorBaseline:
         initial = None
         if continue_from_training:
             initial = (
-                self.regime_model.filtered_probabilities_[-1]
-                @ self.regime_model.transition_matrix_
+                self.regime_model.filtered_probabilities_[-1] @ self.regime_model.transition_matrix_
             )
         return self.regime_model.forward_backward(
             factors,
@@ -671,8 +650,7 @@ class SwitchingDynamicFactorBaseline:
         initial = None
         if continue_from_training:
             initial = (
-                self.regime_model.filtered_probabilities_[-1]
-                @ self.regime_model.transition_matrix_
+                self.regime_model.filtered_probabilities_[-1] @ self.regime_model.transition_matrix_
             )
         return self.regime_model.forward_backward(
             factors,
@@ -690,9 +668,7 @@ class SwitchingDynamicFactorBaseline:
         """Generate joint regime, factor, and asset-level simple-return paths."""
 
         self._check_fitted()
-        rng = np.random.default_rng(
-            self.random_state if random_state is None else random_state
-        )
+        rng = np.random.default_rng(self.random_state if random_state is None else random_state)
         regimes = self.regime_model.sample_posterior_predictive_paths(
             n_paths=n_paths,
             horizon=horizon,
@@ -710,9 +686,9 @@ class SwitchingDynamicFactorBaseline:
             rng=rng,
         )
         flat_observations = observations.reshape(-1, self.n_assets_)
-        simple_returns = self.factor_model.observation_to_simple_returns(
-            flat_observations
-        ).reshape(observations.shape)
+        simple_returns = self.factor_model.observation_to_simple_returns(flat_observations).reshape(
+            observations.shape
+        )
         return JointPathSample(
             regime_paths=regimes,
             factor_paths=factors,

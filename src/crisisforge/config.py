@@ -25,10 +25,9 @@ def project_root_from_module() -> Path:
         if candidate in seen:
             continue
         seen.add(candidate)
-        if (
-            (candidate / "pyproject.toml").is_file()
-            and (candidate / "configs/pipeline.yaml").is_file()
-        ):
+        if (candidate / "pyproject.toml").is_file() and (
+            candidate / "configs/pipeline.yaml"
+        ).is_file():
             return candidate
     raise RuntimeError(
         "Could not locate a CrisisForge checkout. Run from the repository or "

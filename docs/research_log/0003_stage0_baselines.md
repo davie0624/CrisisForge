@@ -19,8 +19,8 @@ This run is a **validation-only rolling-origin comparison**. It is intended to:
 - expose metric failures before the research design is frozen.
 
 It is not a final model selection. The test evaluation branch was not executed, no
-test-origin metric appears in the artifacts, and the test split remains sealed for
-the later frozen-design evaluation.
+test-origin metric appears in the artifacts, and post-2019 rows remain
+governed-excluded from modeling and evaluation pending a later frozen-design run.
 
 ## 2. Frozen configuration
 
@@ -95,8 +95,8 @@ Seeds are deterministic by model number and origin number.
 
 | Metric | Interpretation |
 |---|---|
-| Mean energy score | Multivariate distributional accuracy; lower is better |
-| Mean variogram score | Cross-asset dependence accuracy; lower is better |
+| Mean energy score | Multivariate distribution score; lower is better |
+| Mean variogram score | Pairwise return-difference structure; lower is better |
 | Joint VaR–ES score | Strictly consistent 95% VaR/ES loss score; lower is better |
 | VaR violation rate | Should be close to the nominal 5% |
 | Kupiec \(p\)-value | Unconditional VaR coverage diagnostic |
@@ -124,8 +124,9 @@ The summary file is ordered by mean energy score.
 Important trade-offs:
 
 - `filtered_historical_ewma` has the lowest mean energy score, but its advantage
-  over `moving_block_20` is only about 0.000073. No paired uncertainty interval or
-  significance test has yet established that this difference is durable.
+  over `moving_block_20` is only about 0.000073. The later Stage 3 bootstrap
+  compares each baseline with Stage 1, not these two baselines directly, so it
+  does not establish that this small within-Stage-0 difference is durable.
 - `moving_block_20` has the best variogram score, is almost tied on energy, and has
   the violation rate closest to the nominal 5%.
 - `student_t_elliptical` has the lowest joint VaR–ES score, with
@@ -176,7 +177,7 @@ were:
 
 ### Required follow-up before a co-crash claim
 
-Keep the test split sealed and perform a separately registered,
+Keep post-2019 rows governed-excluded and perform a separately registered,
 validation-only sensitivity analysis:
 
 - vary the training-frozen marginal threshold and minimum asset fraction;
@@ -204,9 +205,12 @@ The receipt records:
 | Failed model-origins | 0 |
 | Models | 7 |
 | Origins | 74 |
-| Elapsed time | 6.4966 seconds |
+| Completed at (UTC) | `2026-07-28T01:37:32.175425+00:00` |
+| Elapsed time | 7.728252083004918 seconds |
+| Git commit | `b6891133bdb6b96e1e23c6bea3bd033ea9685c7c` (clean) |
 | Config SHA-256 | `602dfe0c1a897d2fa05b66439f26d31cf421040005de3cb908985ffe385f9c3e` |
-| Phase 0 manifest SHA-256 used by the run | `5991a8f204c9f40d9116e45531fd76ca13abfd0f32f5439aa1e5ba62e594791c` |
+| Model-matrix SHA-256 | `2a57dd7e8b43dc0d0444d4035cd3d45f1fef340e4a9faaea61fd9ac694cfe699` |
+| Phase 0 manifest SHA-256 used by the run | `f051ec35236a481858b67c5b1e7136f1698036832f427efba521dbf3fcd36d70` |
 
 `artifacts/stage0_baselines/failures.json` is an empty list. Zero implementation
 failures means the common runner completed; it does not mean every statistical
@@ -224,9 +228,14 @@ Durable outputs:
 Stage 0 passes as an implementation and validation-screening milestone.
 
 It does **not** select a final CrisisForge model. The observed metric differences
-are small, objectives disagree, co-crash outcomes contain no positive event, and no
-paired uncertainty comparison has yet been reported. These validation results may
-guide the next preregistered experiments and baseline shortlist only.
+are small, objectives disagree, and co-crash outcomes contain no positive event.
+The subsequently completed paired moving-block bootstrap is recorded in
+`0005_stage3_paired_comparison.md` and
+`artifacts/stage3_comparison/paired_metric_intervals.csv`. It compares Stage 1
+against each Stage 0 model; it does not retroactively select a universal Stage 0
+winner. These validation results may guide the next preregistered experiments and
+baseline shortlist only.
 
-The test split remains unopened for model comparison. It should be evaluated once,
-after the regime/factor/diffusion/tail design and all selection rules are frozen.
+Post-2019 rows remain governed-excluded from model comparison. They should be used
+for evaluation once, after the regime/factor/diffusion/tail design and all
+selection rules are frozen.

@@ -49,14 +49,11 @@ def test_lagged_equity_feedback_is_time_unrolled() -> None:
         intervention=intervention,
         seed=41,
     )
-    policy_difference_t1 = (
-        paired.counterfactual.policy[:, 1] - paired.factual.policy[:, 1]
-    )
-    expected = (
-        scm.parameters.policy_ar
-        * (paired.counterfactual.policy[:, 0] - paired.factual.policy[:, 0])
-        + scm.parameters.policy_equity_feedback
-        * (paired.counterfactual.equity[:, 0] - paired.factual.equity[:, 0])
+    policy_difference_t1 = paired.counterfactual.policy[:, 1] - paired.factual.policy[:, 1]
+    expected = scm.parameters.policy_ar * (
+        paired.counterfactual.policy[:, 0] - paired.factual.policy[:, 0]
+    ) + scm.parameters.policy_equity_feedback * (
+        paired.counterfactual.equity[:, 0] - paired.factual.equity[:, 0]
     )
     assert np.allclose(policy_difference_t1, expected)
 
@@ -133,6 +130,48 @@ def test_counterfactual_metrics_are_zero_at_ground_truth() -> None:
     assert error.tail_effect_error == 0.0
 
 
+def test_tail_direction_is_outcome_specific() -> None:
+    scm = RegimeSwitchingSCM()
+    intervention = Intervention(policy={time: 0.50 for time in range(5)})
+    paired = scm.paired_simulation(
+        num_paths=512,
+        horizon=20,
+        intervention=intervention,
+        seed=92,
+    )
+    equity = estimate_causal_effect(
+        paired.factual,
+        paired.counterfactual,
+        outcome="equity",
+        loss_sign=-1.0,
+    )
+    volatility = estimate_causal_effect(
+        paired.factual,
+        paired.counterfactual,
+        outcome="volatility",
+        loss_sign=1.0,
+    )
+    opposite_volatility = estimate_causal_effect(
+        paired.factual,
+        paired.counterfactual,
+        outcome="volatility",
+        loss_sign=-1.0,
+    )
+    assert np.isfinite(equity.tail_effect)
+    assert np.isfinite(volatility.tail_effect)
+    assert not np.isclose(
+        volatility.tail_effect,
+        opposite_volatility.tail_effect,
+    )
+
+
+def test_zero_tail_loss_sign_is_rejected() -> None:
+    scm = RegimeSwitchingSCM()
+    paths = scm.simulate(scm.generate_exogenous(num_paths=8, horizon=5, seed=9))
+    with np.testing.assert_raises_regex(ValueError, "finite and nonzero"):
+        estimate_causal_effect(paths, paths, loss_sign=0.0)
+
+
 def test_controlled_mediators_follow_declared_within_slice_order() -> None:
     scm = RegimeSwitchingSCM()
     exogenous = SCMExogenous(
@@ -147,8 +186,7 @@ def test_controlled_mediators_follow_declared_within_slice_order() -> None:
     path = scm.simulate(exogenous, controlled)
     expected_liquidity = scm.parameters.liquidity_yield
     expected_credit = (
-        scm.parameters.credit_yield
-        + scm.parameters.credit_liquidity * expected_liquidity
+        scm.parameters.credit_yield + scm.parameters.credit_liquidity * expected_liquidity
     )
     assert np.isclose(path.yield_rate[0, 0], 1.0)
     assert np.isclose(path.liquidity[0, 0], expected_liquidity)
@@ -157,12 +195,8 @@ def test_controlled_mediators_follow_declared_within_slice_order() -> None:
 
 def test_effect_metrics_reject_unpaired_regime_paths() -> None:
     scm = RegimeSwitchingSCM()
-    first = scm.simulate(
-        scm.generate_exogenous(num_paths=8, horizon=5, seed=1)
-    )
-    second = scm.simulate(
-        scm.generate_exogenous(num_paths=8, horizon=5, seed=2)
-    )
+    first = scm.simulate(scm.generate_exogenous(num_paths=8, horizon=5, seed=1))
+    second = scm.simulate(scm.generate_exogenous(num_paths=8, horizon=5, seed=2))
     with np.testing.assert_raises_regex(
         ValueError,
         "identical exogenous regime paths",

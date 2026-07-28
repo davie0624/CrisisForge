@@ -188,9 +188,7 @@ class DynamicFactorModel:
         if isinstance(returns, pd.DataFrame):
             columns = tuple(str(column) for column in returns.columns)
             if columns != self.feature_names_:
-                raise ValueError(
-                    "DataFrame columns or their order differ from the training fold"
-                )
+                raise ValueError("DataFrame columns or their order differ from the training fold")
         observations = self._observation_transform(returns)
         if observations.shape[1] != self.n_features_in_:
             raise ValueError("returns has a different number of assets than the fitted model")
@@ -233,13 +231,9 @@ class DynamicFactorModel:
             n_observations=observations.shape[0],
             n_assets=observations.shape[1],
             n_factors=self.n_factors,
-            total_explained_variance_ratio=float(
-                self.explained_variance_ratio_.sum()
-            ),
+            total_explained_variance_ratio=float(self.explained_variance_ratio_.sum()),
             reconstruction_rmse=float(np.sqrt(np.mean(np.square(residual)))),
-            maximum_absolute_reconstruction_error=float(
-                np.max(np.abs(residual))
-            ),
+            maximum_absolute_reconstruction_error=float(np.max(np.abs(residual))),
         )
 
 
@@ -288,9 +282,7 @@ class RegimeFactorVAR:
         elif initial.shape == (n_paths, self.n_factors):
             previous = initial.copy()
         else:
-            raise ValueError(
-                "initial_factors must have shape (factors,) or (paths, factors)"
-            )
+            raise ValueError("initial_factors must have shape (factors,) or (paths, factors)")
 
         output = np.empty((n_paths, horizon, self.n_factors), dtype=float)
         cholesky = np.stack(
@@ -307,8 +299,7 @@ class RegimeFactorVAR:
                 if selected.size == 0:
                     continue
                 mean = (
-                    self.intercepts[state]
-                    + previous[selected] @ self.transition_matrices[state].T
+                    self.intercepts[state] + previous[selected] @ self.transition_matrices[state].T
                 )
                 noise = rng.normal(size=(selected.size, self.n_factors))
                 current[selected] = mean + noise @ cholesky[state].T
@@ -319,9 +310,7 @@ class RegimeFactorVAR:
     def diagnostics(self) -> dict[str, Any]:
         return {
             "effective_counts": self.effective_counts.copy(),
-            "pooled_fallback_states": (
-                self.effective_counts <= self.n_factors + 1
-            ),
+            "pooled_fallback_states": (self.effective_counts <= self.n_factors + 1),
             "spectral_radii_before_stabilization": (
                 self.spectral_radii_before_stabilization.copy()
             ),
@@ -385,22 +374,12 @@ def fit_regime_factor_var(
     pooled_coefficients = np.linalg.solve(pooled_gram, pooled_rhs)
     pooled_intercept = pooled_coefficients[0]
     pooled_matrix = pooled_coefficients[1:].T
-    pooled_radius_before = float(
-        np.max(np.abs(np.linalg.eigvals(pooled_matrix)))
-    )
+    pooled_radius_before = float(np.max(np.abs(np.linalg.eigvals(pooled_matrix))))
     if pooled_radius_before > maximum_spectral_radius:
-        pooled_matrix = pooled_matrix * (
-            maximum_spectral_radius / pooled_radius_before
-        )
-    pooled_radius_after = float(
-        np.max(np.abs(np.linalg.eigvals(pooled_matrix)))
-    )
-    pooled_residuals = targets - (
-        pooled_intercept + lagged @ pooled_matrix.T
-    )
-    pooled_covariance = np.atleast_2d(
-        np.cov(pooled_residuals, rowvar=False, ddof=0)
-    )
+        pooled_matrix = pooled_matrix * (maximum_spectral_radius / pooled_radius_before)
+    pooled_radius_after = float(np.max(np.abs(np.linalg.eigvals(pooled_matrix))))
+    pooled_residuals = targets - (pooled_intercept + lagged @ pooled_matrix.T)
+    pooled_covariance = np.atleast_2d(np.cov(pooled_residuals, rowvar=False, ddof=0))
     pooled_covariance = _make_positive_semidefinite(
         pooled_covariance,
         eigenvalue_floor=covariance_floor,
@@ -504,10 +483,7 @@ class RegimeObservationMapping:
             selected = states == state
             if not np.any(selected):
                 continue
-            output[selected] = (
-                self.intercepts[state]
-                + factors[selected] @ self.loadings[state].T
-            )
+            output[selected] = self.intercepts[state] + factors[selected] @ self.loadings[state].T
         return output
 
     def sample_paths(
@@ -530,28 +506,19 @@ class RegimeObservationMapping:
             selected = states == state
             if not np.any(selected):
                 continue
-            correlation_cholesky = _covariance_cholesky(
-                self.residual_correlations[state]
-            )
+            correlation_cholesky = _covariance_cholesky(self.residual_correlations[state])
             correlated = standard_normal[selected] @ correlation_cholesky.T
             output[selected] += correlated * self.idiosyncratic_scales[state]
         return output
 
     def diagnostics(self) -> dict[str, Any]:
         minimum_eigenvalues = np.array(
-            [
-                np.linalg.eigvalsh(correlation).min()
-                for correlation in self.residual_correlations
-            ]
+            [np.linalg.eigvalsh(correlation).min() for correlation in self.residual_correlations]
         )
         return {
             "effective_counts": self.effective_counts.copy(),
-            "pooled_fallback_states": (
-                self.effective_counts <= self.n_factors + 1
-            ),
-            "weighted_reconstruction_rmse": (
-                self.weighted_reconstruction_rmse.copy()
-            ),
+            "pooled_fallback_states": (self.effective_counts <= self.n_factors + 1),
+            "weighted_reconstruction_rmse": (self.weighted_reconstruction_rmse.copy()),
             "minimum_residual_correlation_eigenvalue": minimum_eigenvalues,
         }
 
@@ -578,11 +545,7 @@ def fit_regime_observation_mapping(
         regime_probabilities,
         name="regime_probabilities",
     )
-    if not (
-        observation_array.shape[0]
-        == factor_array.shape[0]
-        == probabilities.shape[0]
-    ):
+    if not (observation_array.shape[0] == factor_array.shape[0] == probabilities.shape[0]):
         raise ValueError("observations, factors, and probabilities need equal rows")
     if observation_array.shape[0] < 2:
         raise ValueError("at least two observations are required")
@@ -650,9 +613,8 @@ def fit_regime_observation_mapping(
         state_scales = np.maximum(np.sqrt(np.diag(covariance)), scale_floor)
         raw_correlation = covariance / np.outer(state_scales, state_scales)
         raw_correlation = np.clip(raw_correlation, -1.0, 1.0)
-        shrunk = (
-            (1.0 - correlation_shrinkage) * raw_correlation
-            + correlation_shrinkage * np.eye(n_assets)
+        shrunk = (1.0 - correlation_shrinkage) * raw_correlation + correlation_shrinkage * np.eye(
+            n_assets
         )
         shrunk = _make_positive_semidefinite(shrunk, eigenvalue_floor=1e-8)
         normalizer = np.sqrt(np.diag(shrunk))
@@ -666,10 +628,7 @@ def fit_regime_observation_mapping(
             reconstruction_rmse[state] = pooled_rmse
         else:
             reconstruction_rmse[state] = float(
-                np.sqrt(
-                    np.sum(weights[:, None] * np.square(residuals))
-                    / (effective * n_assets)
-                )
+                np.sqrt(np.sum(weights[:, None] * np.square(residuals)) / (effective * n_assets))
             )
 
     return RegimeObservationMapping(

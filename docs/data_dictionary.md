@@ -507,7 +507,7 @@ Phase 0 wide files use a `DatetimeIndex` and these prefixes:
 | `data/interim/optional_diagnostics.parquet` | Target endpoint | Empty public-core placeholder |
 | `data/interim/availability_alignment_audit.parquet` | Target endpoint | Values plus source, availability, and staleness evidence |
 | `data/processed/model_matrix.parquet` | Joint clean endpoint | 15 targets plus 10 model features |
-| `data/processed/splits/*.parquet` | Joint clean endpoint | Fixed train, validation, and test partitions |
+| `data/processed/model_matrix.parquet` plus `configs/pipeline.yaml` | Joint clean endpoint | Logical train, validation, and sealed-test views; splits are not materialized as separate files |
 
 ## 12. Manifest and run receipt
 
@@ -532,9 +532,14 @@ records run mode (`refresh`, `online-cache`, or `offline`), status, row/column
 counts, split counts, warnings, failed gates, Python/platform/package versions, Git
 commit when available, and the manifest path, SHA-256, and file count.
 
-Because documentation is governed input, editing this file changes the next
-manifest. A prior receipt must not be cited as proving the hash of a later edited
-tree; rerun Phase 0 and archive the new receipt before publication.
+The completed experiments are bound to the content-addressed Phase 0 snapshot
+`f051ec35236a481858b67c5b1e7136f1698036832f427efba521dbf3fcd36d70`
+at clean commit `b6891133bdb6b96e1e23c6bea3bd033ea9685c7c`. That manifest is
+preserved and must not be overwritten after downstream runs. Final documentation,
+figures, quality-assurance receipts, and release files are bound separately by
+`artifacts/release/release_manifest.json`. A future data refresh creates a new
+Phase 0 lineage and requires new dependent experiments rather than relabeling the
+existing evidence.
 
 ## 13. Licensed applied-panel substitutions
 
@@ -563,5 +568,6 @@ Before a result is cited:
 - target units and return types are explicit;
 - French and Treasury proxy labels appear in every relevant caption;
 - train/validation/test boundaries and any horizon purge/embargo are frozen;
-- the experiment references the newly generated manifest and run receipt; and
+- the experiment references its exact content-addressed manifest and run receipt;
+  and
 - no public-core result is described as licensed-panel or investable evidence.

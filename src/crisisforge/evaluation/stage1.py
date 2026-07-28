@@ -64,9 +64,7 @@ def build_switching_factor_model(configuration: dict[str, Any]) -> SwitchingDyna
         factor_covariance_floor=float(dynamics["covariance_floor"]),
         maximum_spectral_radius=float(dynamics["maximum_spectral_radius"]),
         observation_ridge=float(mapping["ridge"]),
-        residual_correlation_shrinkage=float(
-            mapping["residual_correlation_shrinkage"]
-        ),
+        residual_correlation_shrinkage=float(mapping["residual_correlation_shrinkage"]),
         observation_scale_floor=float(mapping["idiosyncratic_scale_floor"]),
         random_state=int(regime["random_seed"]),
     )
@@ -263,9 +261,9 @@ def run_stage1_evaluation(
     for origin_number, origin_position in enumerate(origins):
         seed = base_seed + origin_number
         origin_date = returns.index[origin_position]
-        actual_path = returns.iloc[
-            origin_position + 1 : origin_position + 1 + horizon
-        ].to_numpy(dtype=float)
+        actual_path = returns.iloc[origin_position + 1 : origin_position + 1 + horizon].to_numpy(
+            dtype=float
+        )
         try:
             scenarios, filtered = sample_fixed_estimation_paths(
                 model,
@@ -290,9 +288,7 @@ def run_stage1_evaluation(
                 {
                     "model_id": evaluation["experiment"]["id"],
                     "origin_date": origin_date.date().isoformat(),
-                    "horizon_end_date": returns.index[
-                        origin_position + horizon
-                    ].date().isoformat(),
+                    "horizon_end_date": returns.index[origin_position + horizon].date().isoformat(),
                     "seed": seed,
                     "energy_score": energy_score(
                         simulated_cumulative,
@@ -359,9 +355,7 @@ def run_stage1_evaluation(
     var_forecasts = detail["value_at_risk"].to_numpy(dtype=float)
     es_forecasts = detail["expected_shortfall"].to_numpy(dtype=float)
     actual_crashes = detail["actual_co_crash"].to_numpy(dtype=float)
-    predicted_crashes = detail["predicted_co_crash_probability"].to_numpy(
-        dtype=float
-    )
+    predicted_crashes = detail["predicted_co_crash_probability"].to_numpy(dtype=float)
     summary = {
         "model_id": evaluation["experiment"]["id"],
         "evaluation_split": "validation",
@@ -379,9 +373,7 @@ def run_stage1_evaluation(
         ),
         "mean_brier_score": brier_score(predicted_crashes, actual_crashes),
         "actual_co_crash_count": int(actual_crashes.sum()),
-        "mean_filtered_state_entropy": float(
-            detail["filtered_state_entropy"].mean()
-        ),
+        "mean_filtered_state_entropy": float(detail["filtered_state_entropy"].mean()),
         "coverage": coverage,
         "fit_seconds": fit_seconds,
         "evaluation_seconds": evaluation_seconds,
@@ -431,9 +423,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=None)
     args = parser.parse_args()
     project_root = (
-        args.project_root.resolve()
-        if args.project_root is not None
-        else project_root_from_module()
+        args.project_root.resolve() if args.project_root is not None else project_root_from_module()
     )
     receipt = run_stage1_evaluation(project_root, config_path=args.config)
     print(json.dumps(receipt, indent=2, sort_keys=True, default=_json_default))

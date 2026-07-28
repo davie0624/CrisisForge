@@ -51,13 +51,10 @@ def _filter_dates(frame: pd.DataFrame, start_date: str, end_date: str) -> pd.Dat
     result = result.sort_values("date")
     duplicate_dates = result.loc[result["date"].duplicated(keep=False), "date"]
     if not duplicate_dates.empty:
-        examples = sorted(
-            pd.DatetimeIndex(duplicate_dates.unique()).strftime("%Y-%m-%d").tolist()
-        )[:5]
-        raise RuntimeError(
-            "Source contains duplicate dates after filtering; "
-            f"examples={examples}"
-        )
+        examples = sorted(pd.DatetimeIndex(duplicate_dates.unique()).strftime("%Y-%m-%d").tolist())[
+            :5
+        ]
+        raise RuntimeError(f"Source contains duplicate dates after filtering; examples={examples}")
     return result.reset_index(drop=True)
 
 
@@ -365,8 +362,7 @@ def read_cached_snapshot(
     ):
         if required_key not in metadata:
             raise RuntimeError(
-                f"Snapshot metadata are incomplete for {csv_path}: "
-                f"missing {required_key}"
+                f"Snapshot metadata are incomplete for {csv_path}: missing {required_key}"
             )
     expected_identity = {
         "source_id": expected_source_id,
@@ -383,8 +379,7 @@ def read_cached_snapshot(
     actual_hash = sha256_file(csv_path)
     if not expected_hash or actual_hash != expected_hash:
         raise RuntimeError(
-            f"Cached snapshot hash mismatch for {csv_path}; "
-            "refresh from source before using it"
+            f"Cached snapshot hash mismatch for {csv_path}; refresh from source before using it"
         )
     frame = pd.read_csv(csv_path)
     metadata_columns = list(metadata["columns"])
@@ -393,10 +388,7 @@ def read_cached_snapshot(
             f"Cached snapshot schema mismatch for {csv_path}: "
             f"expected {metadata_columns}, found {list(frame.columns)}"
         )
-    if (
-        expected_columns is not None
-        and list(frame.columns) != expected_columns
-    ):
+    if expected_columns is not None and list(frame.columns) != expected_columns:
         raise RuntimeError(
             f"Cached snapshot catalog-schema mismatch for {csv_path}: "
             f"expected {expected_columns}, found {list(frame.columns)}"
@@ -424,24 +416,19 @@ def read_cached_snapshot(
         raise ValueError("start_date and end_date must be supplied together")
     if start_date is not None and end_date is not None:
         if "requested_start" not in metadata or "requested_end" not in metadata:
-            raise RuntimeError(
-                f"Snapshot metadata lack requested range for {csv_path}"
-            )
+            raise RuntimeError(f"Snapshot metadata lack requested range for {csv_path}")
         if pd.Timestamp(metadata["requested_start"]) > pd.Timestamp(start_date):
             raise RuntimeError(
-                f"Cached snapshot does not cover requested start {start_date}: "
-                f"{csv_path}"
+                f"Cached snapshot does not cover requested start {start_date}: {csv_path}"
             )
         if pd.Timestamp(metadata["requested_end"]) < pd.Timestamp(end_date):
             raise RuntimeError(
-                f"Cached snapshot does not cover requested end {end_date}: "
-                f"{csv_path}"
+                f"Cached snapshot does not cover requested end {end_date}: {csv_path}"
             )
         frame = _filter_dates(frame, start_date, end_date)
         if frame.empty:
             raise RuntimeError(
-                f"Cached snapshot has no observations in {start_date}..{end_date}: "
-                f"{csv_path}"
+                f"Cached snapshot has no observations in {start_date}..{end_date}: {csv_path}"
             )
     return frame
 

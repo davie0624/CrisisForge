@@ -564,16 +564,12 @@ def generate_asset_scenarios(
         dtype=torch.float32,
         device=device,
     )
-    standardized_factors = (
-        model.sample(context, regimes, seed=random_seed).detach().cpu().numpy()
-    )
+    standardized_factors = model.sample(context, regimes, seed=random_seed).detach().cpu().numpy()
     clipped_fraction = 0.0
     if standardized_factor_clip is not None:
         if standardized_factor_clip <= 0.0:
             raise ValueError("standardized_factor_clip must be positive")
-        clipped_fraction = float(
-            np.mean(np.abs(standardized_factors) > standardized_factor_clip)
-        )
+        clipped_fraction = float(np.mean(np.abs(standardized_factors) > standardized_factor_clip))
         standardized_factors = np.clip(
             standardized_factors,
             -standardized_factor_clip,
@@ -708,9 +704,7 @@ def run_stage2_evaluation(
     macro_columns = [column for column in matrix if column.startswith("macro__")]
     expected_macro = int(configuration["windows"]["expected_macro_feature_count"])
     if len(macro_columns) != expected_macro:
-        raise ValueError(
-            f"expected {expected_macro} macro__ columns, found {len(macro_columns)}"
-        )
+        raise ValueError(f"expected {expected_macro} macro__ columns, found {len(macro_columns)}")
     if not asset_columns:
         raise ValueError("model_matrix contains no asset__ columns")
 
@@ -970,26 +964,20 @@ def run_stage2_evaluation(
             # Pair reverse-diffusion and future-regime random numbers across
             # variants so the small pilot is not dominated by Monte Carlo noise.
             seed_at_origin = seed + origin_number
-            actual_path = returns.iloc[
-                origin + 1 : origin + 1 + horizon
-            ].to_numpy(dtype=float)
+            actual_path = returns.iloc[origin + 1 : origin + 1 + horizon].to_numpy(dtype=float)
             try:
                 standardized_context = reporting_bundle.past_context[origin_number]
                 filtered_probability = reporting_bundle.regime_probabilities[origin_number]
-                scenario_paths, regime_paths, clipped_fraction = (
-                    generate_asset_scenarios(
-                        model=model,
-                        stage1_model=stage1_model,
-                        standardized_context=standardized_context,
-                        filtered_probability=filtered_probability,
-                        factor_standardizer=factor_standardizer,
-                        num_scenarios=int(evaluation_configuration["num_scenarios"]),
-                        random_seed=seed_at_origin,
-                        standardized_factor_clip=float(
-                            neural_settings["standardized_factor_clip"]
-                        ),
-                        device=device,
-                    )
+                scenario_paths, regime_paths, clipped_fraction = generate_asset_scenarios(
+                    model=model,
+                    stage1_model=stage1_model,
+                    standardized_context=standardized_context,
+                    filtered_probability=filtered_probability,
+                    factor_standardizer=factor_standardizer,
+                    num_scenarios=int(evaluation_configuration["num_scenarios"]),
+                    random_seed=seed_at_origin,
+                    standardized_factor_clip=float(neural_settings["standardized_factor_clip"]),
+                    device=device,
                 )
                 cumulative = aggregate_path_returns(scenario_paths)
                 actual_cumulative = aggregate_path_returns(actual_path[None, :, :])[0]
@@ -1001,9 +989,7 @@ def run_stage2_evaluation(
                     {
                         "model_variant": variant,
                         "origin_date": origin_date.date().isoformat(),
-                        "horizon_end_date": usable.index[
-                            origin + horizon
-                        ].date().isoformat(),
+                        "horizon_end_date": usable.index[origin + horizon].date().isoformat(),
                         "seed": seed_at_origin,
                         "scenario_count": len(cumulative),
                         "energy_score": energy_score(
@@ -1084,9 +1070,7 @@ def run_stage2_evaluation(
                 confidence,
             )
         actual_crashes = group["actual_co_crash"].to_numpy(dtype=float)
-        predicted_crashes = group[
-            "predicted_co_crash_probability"
-        ].to_numpy(dtype=float)
+        predicted_crashes = group["predicted_co_crash_probability"].to_numpy(dtype=float)
         summary_rows.append(
             {
                 "model_variant": variant,
@@ -1176,10 +1160,7 @@ def run_stage2_evaluation(
         "summary": output_root / "summary.json",
         "diagnostics": output_root / "diagnostics.json",
         "standardizers": output_root / "train_only_standardizers.npz",
-        **{
-            f"checkpoint_{variant}": path
-            for variant, path in variant_checkpoints.items()
-        },
+        **{f"checkpoint_{variant}": path for variant, path in variant_checkpoints.items()},
         **{
             f"cumulative_asset_scenarios_{variant}": (
                 output_root / f"cumulative_asset_scenarios_{variant}.npz"
@@ -1194,12 +1175,9 @@ def run_stage2_evaluation(
         "pilot": True,
         "input_hashes": input_hashes,
         "checkpoint_hashes": {
-            variant: hash_file(path)
-            for variant, path in variant_checkpoints.items()
+            variant: hash_file(path) for variant, path in variant_checkpoints.items()
         },
-        "standardizer_sha256": hash_file(
-            output_root / "train_only_standardizers.npz"
-        ),
+        "standardizer_sha256": hash_file(output_root / "train_only_standardizers.npz"),
         "git": git_state(project_root),
         "outputs": output_hashes(project_root, persisted_outputs),
         "test_set_opened": False,
@@ -1220,9 +1198,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=None)
     args = parser.parse_args()
     project_root = (
-        args.project_root.resolve()
-        if args.project_root is not None
-        else project_root_from_module()
+        args.project_root.resolve() if args.project_root is not None else project_root_from_module()
     )
     receipt = run_stage2_evaluation(project_root, config_path=args.config)
     print(json.dumps(receipt, indent=2, sort_keys=True, default=_json_default))

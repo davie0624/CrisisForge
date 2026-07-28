@@ -50,7 +50,4 @@ def test_misspecified_models_change_registered_structural_coefficients() -> None
         models["reduced_yield_transmission"].parameters.yield_policy,
         truth.yield_policy * 0.5,
     )
-    assert (
-        models["no_lagged_equity_feedback"].parameters.policy_equity_feedback
-        == 0.0
-    )
+    assert models["no_lagged_equity_feedback"].parameters.policy_equity_feedback == 0.0

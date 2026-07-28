@@ -213,7 +213,7 @@ def test_tiny_full_runner_saves_audited_validation_outputs(tmp_path: Path) -> No
             "macro__m3",
         ],
     )
-    matrix.loc[index[110]:, :] = 999_999.0  # Sealed test rows must be ignored.
+    matrix.loc[index[110] :, :] = 999_999.0  # Sealed test rows must be ignored.
     matrix_path = tmp_path / "data/processed/model_matrix.parquet"
     matrix_path.parent.mkdir(parents=True)
     matrix.to_parquet(matrix_path)
@@ -359,7 +359,5 @@ def test_tiny_full_runner_saves_audited_validation_outputs(tmp_path: Path) -> No
     assert (output / "cumulative_asset_scenarios_base.npz").exists()
     assert (output / "cumulative_asset_scenarios_tail_weighted.npz").exists()
     boundaries = pd.read_parquet(output / "window_boundaries.parquet")
-    reporting = boundaries.loc[
-        boundaries["partition"] == "validation_reporting"
-    ]
+    reporting = boundaries.loc[boundaries["partition"] == "validation_reporting"]
     assert pd.to_datetime(reporting["target_end_date"]).max() <= index[109]

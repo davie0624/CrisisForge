@@ -83,10 +83,14 @@ def test_parametric_generators_respect_simple_return_domain() -> None:
 def test_t_copula_preserves_empirical_marginal_bounds(
     returns: np.ndarray,
 ) -> None:
-    scenarios = StudentTCopulaScenarioGenerator().fit(returns).sample(
-        num_scenarios=100,
-        horizon=2,
-        rng=np.random.default_rng(9),
+    scenarios = (
+        StudentTCopulaScenarioGenerator()
+        .fit(returns)
+        .sample(
+            num_scenarios=100,
+            horizon=2,
+            rng=np.random.default_rng(9),
+        )
     )
     assert np.all(scenarios.min(axis=(0, 1)) >= returns.min(axis=0))
     assert np.all(scenarios.max(axis=(0, 1)) <= returns.max(axis=0))

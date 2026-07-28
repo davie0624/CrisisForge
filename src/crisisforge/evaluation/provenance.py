@@ -53,15 +53,12 @@ def assert_manifest_binds_file(
     relative = str(file_path.resolve().relative_to(project_root.resolve()))
     matches = [record for record in records if record.get("path") == relative]
     if len(matches) != 1:
-        raise ValueError(
-            f"Phase 0 manifest must contain exactly one record for {relative}"
-        )
+        raise ValueError(f"Phase 0 manifest must contain exactly one record for {relative}")
     actual = hash_file(file_path)
     expected = matches[0].get("sha256")
     if expected != actual:
         raise ValueError(
-            f"Phase 0 manifest hash mismatch for {relative}: "
-            f"expected {expected}, found {actual}"
+            f"Phase 0 manifest hash mismatch for {relative}: expected {expected}, found {actual}"
         )
     return actual
 
@@ -77,9 +74,7 @@ def assert_receipt_binds_output(
     """Require an upstream receipt to bind a specific persisted output."""
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     if receipt.get("status") not in allowed_statuses:
-        raise ValueError(
-            f"upstream receipt status {receipt.get('status')!r} is not allowed"
-        )
+        raise ValueError(f"upstream receipt status {receipt.get('status')!r} is not allowed")
     output = receipt.get("outputs", {}).get(output_key)
     if not isinstance(output, dict):
         raise ValueError(f"upstream receipt has no hashed output {output_key!r}")

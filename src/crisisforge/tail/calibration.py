@@ -212,12 +212,10 @@ class POTGPDModel:
         if not 0.0 < probability < 1.0:
             raise ValueError("probability must lie in (0, 1)")
         if not self.uses_gpd or probability <= self.threshold_probability:
-            return float(
-                np.quantile(self.empirical_losses, probability, method="higher")
-            )
-        conditional_probability = (
-            probability - self.threshold_probability
-        ) / (1.0 - self.threshold_probability)
+            return float(np.quantile(self.empirical_losses, probability, method="higher"))
+        conditional_probability = (probability - self.threshold_probability) / (
+            1.0 - self.threshold_probability
+        )
         excess_quantile = stats.genpareto.ppf(
             conditional_probability,
             c=float(self.shape),

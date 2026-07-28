@@ -5,413 +5,404 @@
 ### Factor-Structured Temporal Diffusion, Asset-Level Tail Risk, and Robust Portfolio Control
 
 **Version:** 0.3
+
 **Date:** 2026-07-28
+
+**Status:** implemented public-core research system with post-2019 rows
+governed-excluded from model development and evaluation
+
 **Audience:** quantitative finance, financial econometrics, risk management, and
 machine-learning researchers
 
-## Technical summary
+## Abstract
 
-CrisisForge asks whether a posterior-aware, regime-switching latent-factor scenario
-generator can improve out-of-sample multi-asset tail-risk forecasts and portfolio
-decisions. It does not try to predict the date of the next crisis. Its principal
-estimand is the conditional future path distribution
+CrisisForge studies whether structured scenario generators add value beyond strong
+conventional risk models. The system combines a low-dimensional market
+representation, latent regimes, one-shot temporal diffusion, a stochastic
+factor-to-asset observation mapping, asset-level tail-risk measurement, and
+portfolio decisions. A separate time-unrolled structural causal model tests
+counterfactual machinery where ground truth is known.
+
+The project does **not** predict the date of the next crisis, identify a real-world
+monetary-policy effect, or claim that generative AI beats conventional risk models.
+Its principal predictive estimand is
 
 \[
 \mathcal P_t^H=P(r_{t+1:t+H}\mid\mathcal F_t),
 \]
 
-where \(t\) indexes a common target-panel interval endpoint, \(r_t\) is the vector
-of decimal **simple** returns over that endpoint interval, and \(\mathcal F_t\)
-contains only information available after the close at endpoint \(t\). The public
-targets are neither excess returns nor log returns. A forecast made after close
-\(t\) begins with \(r_{t+1}\); it never predicts the already observed interval
-\(r_t\).
+where \(r_t\) is a vector of decimal simple returns over a common-endpoint holding
+interval and \(\mathcal F_t\) contains only information available after close at
+origin \(t\). The first forecast target is \(r_{t+1}\).
 
-The project combines:
+The completed validation evidence is deliberately mixed. Conventional
+time-dependence-preserving baselines lead the switching-factor model on energy and
+variogram scores. Joint VaR–ES performance is statistically inconclusive. A small
+diffusion engineering pilot runs end to end but is not powered for model ranking.
+Historical CVaR has lower observed validation ES and drawdown than Stage 1
+scenario-based CVaR; tested Wasserstein radii barely change the solution. These
+decision rankings are descriptive because no paired sampling interval was
+computed. The
+counterfactual engine is numerically correct in a known semi-synthetic SCM and
+materially sensitive to structural misspecification. These negative results are a
+central research output, not a failed marketing claim.
 
-1. a Bayesian switching dynamic factor state-space model;
-2. a non-autoregressive, one-shot diffusion model for nonlinear factor-path
-   residuals;
-3. a regime-dependent stochastic observation mapping,
-   \[
-   r_t=\alpha_{z_t}+B_{z_t}f_t+D_{z_t}\epsilon_t;
-   \]
-4. tail-conditioned generation, peaks-over-threshold calibration, and sequential
-   VaR calibration;
-5. asset-level VaR, Expected Shortfall (ES), and co-crash scoring;
-6. empirical CVaR and tractable Wasserstein-DRO portfolio allocation; and
-7. a separate structural counterfactual extension validated first in a
-   semi-synthetic market with known causal ground truth.
+## Target architecture and implemented evidence
 
-The study has three deliberately separate tracks:
+The long-run research design is broader than the public-core evidence. The
+distinction below is binding.
 
-- **Predictive:** honest rolling forecasts issued after close \(t\) for intervals
-  beginning at \(t+1\).
-- **Stress:** user-conditioned severe but model-consistent scenarios; not assigned
-  calibrated forecast probabilities.
-- **Counterfactual:** abduction–action–prediction in a known time-unrolled
-  structural causal model. Real-market results are called model-based structural
-  interventions unless an external identification strategy is available.
+| Component | Target design | Implemented public core | Evidence status |
+|---|---|---|---|
+| Regime model | Bayesian switching state-space posterior | Sticky Gaussian HMM, multi-start MAP-like EM | Complete baseline |
+| Factor model | Joint dynamic latent-factor posterior | Train-only standardized PCA plus regime-weighted VAR(1) | Complete baseline |
+| Observation map | Posterior draws of \(B_z,D_z,R_z\) | Regime-weighted linear map with shrunk Gaussian residual covariance | Complete baseline |
+| Diffusion | Large one-shot conditional factor-path generator | Small conditional DDPM pilot, 12 steps, 3+2 epochs | Engineering pilot |
+| Tail layer | Tail mixture, EVT, sequential calibration | Importance-weighted diffusion fine-tuning integrated; POT/GPD and rolling conformal utilities tested only | Partial |
+| Risk engine | VaR, ES, co-crash, proper scores | Asset-level implementations and rolling validation | Complete, co-crash event-scarce |
+| Decision layer | CVaR and calibrated Wasserstein DRO | Empirical CVaR and four fixed Wasserstein-radius sensitivities | Complete validation study |
+| Counterfactual | Structural intervention with known truth, later identified real-data study | Time-unrolled semi-synthetic SCM with AAP and misspecification tests | Complete semi-synthetic study |
 
-## Motivation and research gap
+No MCMC, variational Bayes, full parameter posterior, Student-\(t\) observation
+residual, regime-hierarchical EVT fit, ESR test, decision-focused end-to-end
+training, or real-market causal identification is claimed.
 
-Historical simulation, multivariate Student-\(t\), copulas, VAR/DCC-GARCH, and block
-bootstrap remain strong and interpretable risk baselines. Modern diffusion models
-can represent nonlinear, multimodal joint distributions but face three acute
-financial-data problems: high dimension with short histories, changing dependence
-across regimes, and too few crisis observations.
+## Motivation
 
-Recent diffusion-factor work argues that low-dimensional structure can mitigate
-the high-dimensional small-sample problem, but the most direct finance-specific
-paper remains a preprint. Accepted time-series diffusion work supports
-non-autoregressive multi-horizon generation, while accepted regime-switching factor
-research supports state-dependent loadings and volatility. These literatures have
-not yet produced a single, carefully validated system that:
+Historical simulation, block bootstrap, multivariate Student-\(t\), copulas, and
+VAR residual simulation remain difficult risk baselines to beat. Deep generative
+models offer nonlinear path distributions but face three limitations in financial
+applications:
 
-- propagates regime and parameter uncertainty through asset reconstruction;
-- evaluates tail risk at asset and portfolio level;
-- compares statistical realism with realized decision value;
-- distinguishes predictive scenarios from causal counterfactuals; and
-- quantifies the trade-off between central fit, tail calibration, and portfolio
-  robustness.
+1. the asset dimension is large relative to the number of independent crisis
+   observations;
+2. dependence and volatility change across latent market states; and
+3. good average distribution fit may not improve the left tail or downstream
+   decisions.
 
-CrisisForge targets this gap. The novelty claim is conditional on empirical results
-and will be reduced if a component does not beat strong baselines.
+CrisisForge therefore treats generative modeling as a falsifiable extension to a
+financially structured baseline. It asks where complexity helps, where it does not,
+and how errors propagate from latent states and factor paths to asset returns and
+portfolio weights.
+
+The verified primary literature and the claim each source supports are recorded in
+`docs/literature_review.md`. Preprints are marked separately from peer-reviewed
+work.
 
 ## Research questions
 
-### RQ1 — Factor structure
+### RQ1 — Structured versus conventional scenarios
 
-Does factor-space generation improve held-out multivariate proper scores and
-estimation stability relative to direct asset-level generation at the same model
-capacity?
+Does the switching-factor architecture improve multivariate proper scores or
+joint tail scores relative to rolling conventional generators?
 
-### RQ2 — Regime uncertainty
+### RQ2 — Regime information
 
-Does posterior-predictive regime conditioning improve crisis-window distribution,
-VaR–ES, and co-crash scores relative to unconditional conditioning and a
-hard-label diagnostic ablation?
+What statistical states emerge from training data, how persistent are they, and
+does filtered state uncertainty support stable scenario generation without using
+future information?
 
-### RQ3 — Observation mapping
+### RQ3 — Factor-to-asset reconstruction
 
-Do regime-dependent \(B_z\), \(D_z\), and residual correlation reproduce
-correlation breaks and lower-tail dependence better than a fixed mapping?
+Can a regime-dependent observation map in transformed-return space,
 
-### RQ4 — Tail calibration
+\[
+y_t=\log(1+r_t)
+=\alpha_{z_t}+B_{z_t}f_t+D_{z_t}\epsilon_t,
+\qquad r_t=\operatorname{expm1}(y_t),
+\]
 
-How much central-distribution fit must be surrendered to improve VaR–ES calibration?
-The result is evaluated as a Pareto frontier, not a single winner-takes-all metric.
+reconstruct a high-dimensional asset panel while preserving idiosyncratic
+variation and residual dependence?
 
-### RQ5 — Decision value
+### RQ4 — One-shot temporal diffusion
 
-Do models that best match the data also produce the best realized out-of-sample
-CVaR, drawdown, turnover, and transaction-cost outcomes?
+Can a conditional DDPM generate an entire \(H\times q\) factor path in one shot,
+and what trade-off between multivariate distribution scores and the joint
+VaR–ES score appears after importance-weighted fine-tuning?
 
-### RQ6 — Uncertainty propagation
+### RQ5 — Tail-risk evidence
 
-Does posterior predictive propagation improve interval coverage and portfolio
-weight stability relative to plug-in posterior means?
+How well do scenario generators estimate 95% VaR and ES, and is the validation
+sample informative enough to evaluate co-crash probabilities?
+
+### RQ6 — Decision value
+
+Do statistically sophisticated scenarios improve realized validation ES,
+drawdown, turnover, and net return relative to equal-weight and historical-CVaR
+decisions?
 
 ### RQ7 — Counterfactual validity
 
-In a known structural market, does the counterfactual module recover intervention
-response curves, tail effects, and individual paths better than conditional-only
-generation?
+Under a known time-unrolled SCM, does abduction–action–prediction recover paired
+counterfactual paths, and how quickly does performance deteriorate under
+misspecified transmission equations?
 
-## Pre-registered hypotheses
+## Registered hypotheses and current disposition
 
-- **H1:** Factor diffusion improves held-out energy/variogram scores and reduces
-  run-to-run variance relative to direct asset diffusion.
-- **H2:** Soft posterior regime conditioning improves crisis-window energy,
-  joint VaR–ES, and co-crash scores relative to unconditional and hard-decoded
-  diagnostic variants.
-- **H3:** Regime-dependent \(B_z,D_z\) improves held-out tail covariance and
-  co-crash calibration relative to fixed \(B,D\).
-- **H4:** Tail calibration improves joint VaR–ES scores and ESR diagnostics but may
-  worsen central-distribution scores.
-- **H5:** Generator ranking by distributional score differs from ranking by
-  realized portfolio decision loss.
-- **H6:** Posterior predictive propagation reduces risk under-coverage and weight
-  instability compared with plug-in estimation.
-- **H7:** In the semi-synthetic structural market, the counterfactual module
-  improves ATE, impulse-response, and counterfactual distribution error relative
-  to a conditional generator.
+| Hypothesis | Testable statement | Current disposition |
+|---|---|---|
+| H1 | Factor/regime structure improves joint distribution scores | Not supported: leading conventional baselines have lower energy and variogram scores |
+| H2 | Regime conditioning improves tail-risk scores | Not isolated by the current ablation set |
+| H3 | Regime-dependent mapping improves asset-tail dependence | Implemented, but fixed-map ablation remains outstanding |
+| H4 | Tail emphasis changes multivariate distribution and joint tail-risk scores differently | Descriptive pilot is mixed: energy/variogram improve slightly while joint VaR–ES worsens |
+| H5 | Statistical and decision rankings differ | Suggestive, not isolated: Stage 1's marginally lower joint VaR–ES point score does not translate into lower observed ES/drawdown than a separate historical-CVaR baseline; uncertainty and differing scenario/update policies prevent a clean ranking claim |
+| H6 | Full uncertainty propagation stabilizes risk and weights | Not tested; the current estimator is plug-in/MAP |
+| H7 | Counterfactual recovery is sensitive to structural correctness | Supported in the known SCM; not evidence of real-market identification |
+
+These dispositions apply only to the validation evidence described below.
+Post-2019 rows remain governed-excluded from model development and evaluation.
 
 ## Data
 
-### Public research track
+### Public research panel
 
-Phase 0 uses a retrospective `research_core` panel with 15 return targets:
+The model matrix contains 6,465 common-endpoint rows from 2000-07-05 through
+2026-05-29:
 
 - 12 value-weighted U.S. industry research portfolios from the Kenneth French Data
-  Library; and
-- 2-, 5-, and 10-year Treasury duration-convexity return proxies derived from
-  official daily par yields.
+  Library;
+- three Treasury duration-convexity return proxies derived from official U.S.
+  Treasury daily par yields; and
+- ten availability-lagged market and macro context variables from retained current
+  public-source snapshots.
 
-The industry portfolios are research constructs, not tradable ETFs. The Treasury
-series are transparent return proxies, not observed bond total returns. This
-wording is enforced throughout the report.
+The 15 targets are decimal simple returns. Industry portfolios are retrospective
+research constructs, not tradable ETFs. Treasury targets are transparent proxies,
+not observed bond total-return indices. The public core therefore supports
+methodological research, not live-trading or investability claims.
 
-The target calendar is formed from endpoints shared by the industry and Treasury
-sources. Each row compounds every source's simple returns over the common holding
-interval \((e_{t-1},e_t]\). A row is therefore a **common-endpoint interval**, not
-an assertion that every market supplied exactly one identical exchange session.
-The interval audit records calendar duration and source-observation counts.
+The ten context columns comprise:
 
-The public predictive context contains ten variables:
+- 2-, 5-, and 10-year Treasury par-yield levels and the 10y–2y slope;
+- New York Fed effective federal funds rate; and
+- five backward-looking features from industry returns: equal-weighted market
+  return, 20-observation realized volatility, downside semivolatility,
+  cross-industry dispersion, and 60-observation drawdown.
 
-- U.S. Treasury 2-, 5-, and 10-year par-yield levels and the 10y–2y slope;
-- New York Fed EFFR; and
-- five backward-looking features derived from the 12 industry returns: the
-  equal-weighted industry-market return, 20-observation realized volatility,
-  20-observation downside semivolatility, 20-observation cross-industry
-  dispersion, and 60-observation market drawdown.
+Treasury and EFFR context values enter after their registered one-model-session
+availability lag. OFR Financial Stress Index components are retained only as
+external validation labels and never enter estimation or hyperparameter selection.
+FRED/ALFRED and unlicensed option-index histories are excluded from the ML research
+core. Exact sources, transformations, lags, terms, and paid substitutes appear in
+`docs/data_dictionary.md` and `configs/data_catalog.yaml`.
 
-Treasury and EFFR context values enter only after their catalogued one-model-session
-availability lag. Return-derived context through endpoint \(t\) is available only
-for the after-close \(t\rightarrow t+1\) forecast. OFR stress components are stored
-as external validation labels and excluded from the model matrix, regime
-estimation, and diffusion context to avoid circularity.
+These public sources are not a point-in-time vintage database. Revision-specific
+claims require a separately versioned source that preserves historical releases.
 
-The clean public model panel contains **6,465 common-endpoint rows**, 15 simple-return
-targets, and 10 context variables from 2000-07-05 through 2026-05-29.
+### Chronological split
 
-Cboe website histories are not part of the public research core. A downloadable
-VIX, SKEW, or VVIX file is not treated as permission for public ML training or model
-release. Option-index histories enter only a separately licensed extension through
-Cboe DataShop, OptionMetrics, or another source whose terms permit the intended use.
+| Split | Rows | Boundary |
+|---|---:|---|
+| Train | 3,367 | through 2013-12-31 |
+| Validation | 1,499 | 2014-01-02 through 2019-12-31 |
+| Sealed test | 1,599 | from 2020-01-02 |
 
-FRED/ALFRED are not used. Their current Terms of Use prohibit using FRED Services
-or Content to develop or train machine-learning, deep-learning, or generative-AI
-software. All configured series are therefore obtained from their original
-publishers.
+All reported scores and decisions are validation-era evidence. Stage 0–5
+evaluation runners scan the model matrix only through 2019-12-31, so no estimator
+fit, checkpoint, model score, or portfolio decision uses post-2019 rows. Phase 0
+necessarily constructs and quality-checks the full matrix, including the 1,599
+post-2019 rows. “Sealed” means governed exclusion from model development and
+evaluation, not that the values are cryptographically hidden from Phase 0.
 
-### Publication-grade track
+## Canonical experimental stages
 
-Preferred paid replacements are CRSP/WRDS, Bloomberg, LSEG, or FactSet for
-point-in-time security and ETF total returns; OptionMetrics or Cboe DataShop for
-option-implied information; ICE for full credit/OAS and MOVE histories; CME
-DataMine for roll-adjusted futures; and Haver for point-in-time macro data.
+### Phase 0 — Data pipeline and governance
 
-The exact variables, transformations, assumed availability lags, licenses, and
-substitutes are defined in `docs/data_dictionary.md` and
-`configs/data_catalog.yaml`.
+Download public snapshots, hash raw and derived files, align source calendars,
+compound source returns over common intervals, apply availability lags, build the
+model matrix, and run 23 quality gates.
 
-## Method
+### Stage 0 — Conventional scenario baselines
 
-### Stage 0 — Research-grade data and conventional baselines
+Evaluate seven generators on 74 non-overlapping \(H=20\) validation origins with
+1,000 scenarios per origin:
 
-- Local raw snapshots, source URLs, retrieval time, and hashes; restricted raw data
-  remain uncommitted and unredistributed.
-- Common-endpoint interval aggregation, an interval audit, availability-aware
-  backward-as-of context alignment, and no backward fill.
-- Chronological nested splits and later rolling-origin folds.
-- Historical simulation, block bootstrap, multivariate Student-\(t\), Student-\(t\)
-  copula, VAR, DCC-GARCH, and HMM-WGAN comparator.
-- Verified VaR, ES, co-crash, and portfolio-loss engine before using diffusion.
+- historical IID;
+- moving-block bootstrap;
+- filtered historical simulation with EWMA volatility;
+- Gaussian shrinkage;
+- multivariate Student-\(t\);
+- Student-\(t\) copula; and
+- VAR(1) residual bootstrap.
 
-### Stage 1 — Bayesian switching dynamic factor core
+### Stage 1 — MAP/empirical-Bayes switching factor and observation map
 
-Estimate a joint switching state-space model for regime, factors, loadings, and
-idiosyncratic scale/correlation. The initial search is \(K\in\{2,3\}\),
-\(q\in\{3,4,5\}\), \(H=20\) common-endpoint intervals. Semantic names are assigned
-only after state diagnostics. States with occupancy below 5% trigger a lower-\(K\)
-model.
+Fit four train-only PCA factors; estimate a four-state sticky Gaussian HMM by
+multi-start MAP-like EM; fit regime-weighted stable VAR(1) factor dynamics; and fit
+regime-weighted Gaussian observation mappings to \(y_t=\log(1+r_t)\). Training
+smoothed probabilities are used to fit the downstream regime components. Forecast
+origins use filtered probabilities only, and simulated observations are converted
+back to simple returns with \(\operatorname{expm1}\).
 
-Only filtered probabilities are permitted in forecasting. Smoothed probabilities
-are restricted to retrospective plots and diagnostics. Hard-decoded regimes are
-diagnostic ablations only; production forecasts propagate the soft filtered
-posterior and draw full posterior-predictive regime paths. OFR labels may assess
-state interpretation after estimation but never determine or order states.
+For each scenario, draw a future state path, factor path, and correlated
+asset-specific residuals. Apply the exact state-specific parameters; do not average
+loadings or Cholesky factors across state probabilities.
 
-### Stage 2 — One-shot conditional factor diffusion
+### Stage 2 — One-shot diffusion engineering pilot
 
-The linear state-space model supplies a conditional factor-path location and scale.
-Diffusion learns the entire standardized nonlinear residual path
-\(H\times q\) in one shot. Context contains historical filtered factors, filtered
-regime probabilities, vintage-safe market features, and predictive regime
-probabilities. Future realized regimes never enter the context.
+Construct 60-observation histories and \(H=20\) future factor tensors. A compact
+conditional temporal DDPM denoises the full future factor path at once. Context
+contains factor and macro history plus the origin filtered state probabilities.
+The reported pilot has 658 training windows, 37 tuning windows, four
+late-validation reporting origins, 12 diffusion steps, 64 scenarios per origin,
+three base epochs, and two tail-weighted fine-tuning epochs.
 
-Ablations:
+Future state paths for asset reconstruction are currently sampled independently
+from the generated factor path conditional on the same origin belief. Joint dynamic
+consistency is therefore not guaranteed.
 
-1. direct asset diffusion;
-2. unconditional factor diffusion;
-3. hard-decoded-regime factor diffusion as a diagnostic negative control;
-4. soft posterior regime-conditioned factor diffusion;
-5. posterior-predictive versus plug-in reconstruction.
+### Stage 3 — Paired validation comparison
 
-### Stage 3 — Tail layer
+Compare Stage 1 with every Stage 0 generator on identical origins using a circular
+moving-block bootstrap with block length four and 10,000 draws. Intervals are
+exploratory and not multiplicity-adjusted. Stage 0 uses rolling 1,500-row refits,
+whereas Stage 1 freezes train parameters and only filters forward; comparisons are
+not causal estimates of model-class effects.
 
-- Tail-conditioned mixture with inverse-probability correction.
-- Training-only threshold and reference portfolio.
-- Regime-hierarchical POT-GPD for standardized portfolio loss.
-- Horizon-specific sequential VaR calibration.
-- Joint VaR–ES scores and ESR diagnostics.
-- Central-fit versus tail-fit Pareto frontier.
+### Stage 4 — Embedded tail and mapping functionality
 
-### Stage 4 — Asset mapping and decision layer
+No standalone Stage 4 experiment exists. Importance-weighted diffusion fine-tuning
+is exercised in Stage 2. Asset mapping is exercised in Stages 1 and 2. POT/GPD and
+rolling conformal utilities are unit-tested but not integrated into the reported
+experiment. This stage label is retained to make the target architecture explicit
+without inventing evidence.
 
-Each simulated scenario draws a regime path, factor path, posterior parameters, and
-residuals before applying the regime-specific observation equation. The resulting
-asset paths remain decimal simple returns. They are geometrically compounded over
-the \(H\)-interval horizon before feeding VaR, ES, co-crash, empirical CVaR, and
-Wasserstein-DRO. Regime-specific \(B_z,D_z,R_z\), or their Cholesky factors are
-never posterior-probability averaged.
+### Stage 5 — Portfolio decisions
 
-The initial decision is a single-period, \(H\)-interval buy-and-hold allocation with
-full-investment, long-only or bounded-short, turnover, position, and ridge
-constraints. Dynamic multistage allocation is deferred because it requires a
-scenario tree and non-anticipativity.
+Solve long-only, fully invested empirical-CVaR and 1-Wasserstein robust-CVaR
+problems at the same 74 origins. The position cap is 20%, L1 turnover cap is 40%,
+and the linear transaction-cost rate is 10 basis points per unit of L1 turnover.
+Four fixed Wasserstein radii are reported as separate validation sensitivities;
+none is selected as final.
 
-### Stage 5 — Structural counterfactual extension
+### Stage 6 — Structural counterfactual extension
 
-Construct a time-unrolled regime-switching structural causal model with known
-innovations. Evaluate total and controlled interventions using
-abduction–action–prediction. Compare against DoFlow, a conditional-only generator,
-and simpler structural baselines. The confirmatory causal evidence is restricted to
-the semi-synthetic market where factual and counterfactual ground truth are known.
-The public financial panel is not treated as identifying a monetary-policy effect.
-A real-data module is opened only after a separately registered, defensible
-treatment and identification strategy exist; otherwise its outputs are only
-model-based structural interventions or stress scenarios.
+Use a time-unrolled regime-switching SCM with within-period order
+
+\[
+\text{policy}\rightarrow\text{yield}\rightarrow\text{liquidity}
+\rightarrow\text{credit}\rightarrow\text{equity}\rightarrow\text{volatility}
+\]
+
+and lagged equity-to-policy feedback. Abduction, action, and prediction reuse the
+same exogenous noise. Oracle recovery and two structural misspecifications are
+evaluated over 5,000 paired \(H=20\) paths. The experiment has known
+semi-synthetic truth and no observed-market causal estimand.
 
 ## Evaluation
 
-### Predictive distribution
+Primary generator metrics are energy score, variogram score, and a joint VaR–ES
+score. Risk diagnostics include empirical VaR violations, Kupiec unconditional
+coverage, Christoffersen conditional coverage, ES, and co-crash Brier score.
+Energy and variogram scores use the 15-asset geometrically compounded \(H=20\)
+return vector. VaR, ES, joint VaR–ES, and violation rates use a frozen
+equal-weight portfolio with \(w_i=1/15\).
 
-- energy score and variogram score;
-- sliced Wasserstein distance and MMD as diagnostics;
-- mean, variance, skewness, kurtosis;
-- return and squared-return ACF;
-- dynamic correlation and lower-tail dependence;
-- drawdown depth/duration and explosive-path rate;
-- condition-adherence scores for regime and stress controls.
+At every evaluated origin—74 Stage 0/Stage 1 origins and four Stage 2
+origins—the realized co-crash label is zero; generated scenario sets may still
+assign nonzero probabilities. The Brier score therefore cannot assess event
+discrimination in the current sample.
 
-### Tail risk
+Decision metrics are cumulative net return, realized 95% VaR and ES, maximum
+drawdown, turnover, and transaction cost. Counterfactual metrics are terminal and
+cumulative paired effects, tail effect, path RMSE, and error under known structural
+misspecification. For the Stage 6 tail effect, lower cumulative equity outcomes
+are losses (\(s_{\mathrm{equity}}=-1\)), while higher cumulative volatility is a
+stress loss (\(s_{\mathrm{volatility}}=+1\)).
 
-- pinball loss;
-- Kupiec unconditional-coverage and Christoffersen independence diagnostics;
-- Fissler–Ziegel joint VaR–ES score;
-- ESR backtesting;
-- co-crash Brier/log score and calibration curve;
-- Monte Carlo uncertainty for all reported risk measures.
+## Current validation findings
 
-### Decision value
+1. Filtered historical simulation has the best mean energy score
+   (\(0.089739\)); moving block has the best variogram score (\(0.532226\)); and,
+   among Stage 0 models, Student-\(t\) elliptical has the lowest joint VaR–ES
+   point score (\(-0.949064\)).
+2. Stage 1 records energy \(0.094315\), variogram \(0.588639\), and joint VaR–ES
+   \(-0.949124\), marginally lower than the Stage 0 point estimate. Its paired
+   difference from Student-\(t\) elliptical is \(-0.000060\), with a 95% interval
+   \([-0.007544,0.006818]\), so no reliable advantage is established. Its single
+   VaR violation out of 74 is conservative, not evidence of superior calibration.
+3. Paired intervals show Stage 1 is worse than the leading conventional baselines
+   on energy and variogram scores. Every joint VaR–ES interval crosses zero.
+4. Tail-weighting in the four-origin diffusion pilot slightly improves energy and
+   variogram scores but worsens the joint VaR–ES score. The sample is too small for
+   inference.
+5. Historical CVaR has observed validation ES \(0.017669\) and maximum drawdown
+   \(0.034111\), versus \(0.020738\) and \(0.047824\) for Stage 1 scenario CVaR.
+   Wasserstein sensitivities are almost indistinguishable from empirical Stage 1
+   CVaR. These decision differences are descriptive; no paired sampling interval
+   was computed.
+6. The semi-synthetic counterfactual oracle recovers truth to numerical precision.
+   Misspecified structural equations produce path RMSE from \(0.0731\) to
+   \(0.2782\), demonstrating structural sensitivity.
 
-- realized out-of-sample ES;
-- maximum drawdown and crisis loss;
-- return, Sharpe, and Sortino as secondary metrics;
-- turnover, transaction cost, concentration, and recovery time;
-- worst-regime performance;
-- paired block-bootstrap confidence intervals.
+## Leakage, provenance, and reproducibility controls
 
-### Counterfactual validity
+- chronological train/validation/test boundaries;
+- validation-bounded Parquet scans in experiment runners;
+- no backward fill and explicit availability lags;
+- train-only scalers, PCA, HMM, thresholds, and standardizers;
+- filtered probabilities only at forecast origins;
+- identical registered validation origins for paired models;
+- fixed seeds and declarative YAML configurations;
+- run receipts bound to the Phase 0 manifest, source commit, inputs, and outputs;
+- preservation of failures and negative results; and
+- no regeneration of the bound Phase 0 manifest after dependent experiments.
 
-- average/individual treatment-effect error;
-- intervention response-curve error;
-- counterfactual distribution distance;
-- \(\Delta ES_\alpha\) error;
-- DAG misspecification and support sensitivity.
+## Stop/go gates and retained failures
 
-## Leakage and reproducibility controls
+The intended confirmatory gate—advance to diffusion only if the structured
+switching-factor model clearly improves conventional baselines—was not met. A
+strictly non-confirmatory Stage 2 pilot nevertheless proceeded to validate the
+one-shot diffusion plumbing, checkpointing, tail-weighting mechanism, and asset
+mapping. It is not promoted to a ranking result.
 
-- All forecasts use only \(\mathcal F_t\).
-- The default origin is after close at common endpoint \(t\); targets begin at
-  \(t+1\). Same-interval prediction is prohibited.
-- Common-endpoint rows compound source returns over \((e_{t-1},e_t]\); they are not
-  silently interpreted as identical one-session returns.
-- Time splits are chronological; overlapping \(H\)-interval labels are purged with an
-  embargo of at least \(H\).
-- Scalers, imputers, PCA/loadings, regime model, EVT threshold, and calibration are
-  re-estimated inside each training fold.
-- Thresholds, reference portfolio, and co-crash definitions are fixed from training
-  data.
-- No backward fill; macro values become usable only after their release/assumed
-  availability date.
-- The raw panel remains decimal simple returns without a risk-free subtraction. If
-  a model uses \(y_t=\log(1+r_t)\), that is an explicit within-fold model-space
-  transform; learned normalization is fit on training data only, and scenarios are
-  mapped back with \(\exp(y)-1\) before risk or decision evaluation.
-- Cboe/OptionMetrics features are absent from the public core and may appear only
-  in a license-tagged extension.
-- OFR labels never enter preprocessing, regime estimation, diffusion context, or
-  hyperparameter selection.
-- Hyperparameters are selected on validation only.
-- Common forecast origins and random seeds are used across models.
-- Overlapping-origin inference uses HAC or stationary block bootstrap.
-- Negative and failed results are retained in versioned experiment records.
+Future diffusion work should stop unless it:
 
-## Error propagation and robustness
+1. expands to the complete registered validation-origin set;
+2. adds direct, unconditional, hard-state, and fixed-map ablations;
+3. preserves joint consistency between factor and state paths;
+4. quantifies Monte Carlo uncertainty; and
+5. improves a predeclared tail or decision metric without hiding deterioration in
+   central fit.
 
-The project measures how factor, regime, residual, and mapping error affect the
-asset distribution and CVaR objective. Sensitivity experiments perturb:
+## Planned extensions
 
-- regime transition probabilities;
-- \(B_z,D_z\) and residual correlation;
-- factor-path error;
-- posterior draws versus posterior means;
-- Gaussian versus Student-\(t\) residuals;
-- \(K,q,H\), tail threshold, and Wasserstein radius;
-- fixed versus regime-dependent mapping; and
-- true/estimated factors and residuals in module-swap experiments.
+The following remain research proposals rather than completed results:
 
-Strong convex regularization is included in the optimizer because stability of the
-objective does not by itself imply stability of portfolio weights.
-
-## Stop/go gates
-
-- Reduce \(K\) if a state has occupancy below 5% or labels are unstable.
-- Stop before diffusion if the switching factor model does not improve held-out
-  reconstruction or tail covariance over fixed PCA/factor baselines.
-- Retain diffusion as a negative result if it does not beat block bootstrap or
-  Student-\(t\) on proper scores.
-- Do not use “tail-aware” in the main conclusion unless held-out joint VaR–ES/ESR
-  evidence improves.
-- Report optimizer's curse or over-robustness if DRO helps simulated loss but harms
-  realized out-of-sample loss after turnover.
-- Keep the causal chapter semi-synthetic if real-data identification is inadequate.
-
-## Expected contributions
-
-Subject to the gates above, CrisisForge aims to contribute:
-
-1. a posterior-aware interface between switching dynamic factor models and
-   one-shot temporal diffusion;
-2. a regime-dependent stochastic factor-to-asset mapping with explicit residual
-   dependence;
-3. a joint evaluation of central fit, tail calibration, and realized decision
-   quality;
-4. an uncertainty-aware treatment of Wasserstein robustness around model-generated
-   scenarios; and
-5. a clean separation between forecast, stress, and structural counterfactual
-   experiments.
+- a coherent Bayesian switching state-space model with parameter posterior draws;
+- posterior predictive propagation of \(B_z,D_z,R_z\) and state uncertainty;
+- Student-\(t\) observation residuals and fixed-versus-regime mapping ablations;
+- tail-mixture training with inverse-probability correction;
+- regime-hierarchical POT/GPD and sequential conformal calibration;
+- ESR tests, calibration curves, MMD/SWD, ACF, leverage, and tail-dependence
+  diagnostics;
+- validation-calibrated Wasserstein radius selection;
+- decision-focused training; and
+- a separately identified real-data causal design.
 
 ## Deliverables
 
-- reproducible Python package and pinned environment;
-- source catalog, snapshots, manifests, and data-quality reports;
-- executed notebooks for reader-facing diagnostics;
-- conventional baselines and all staged model implementations;
-- experiment registry, ablations, negative results, and model cards;
-- 40–60 page research report and technical appendix;
-- core figures and interactive stress-testing application;
-- 8–12 minute presentation and two-minute interview explanation;
-- README, LinkedIn visual summary, and publication-ready caveat language.
+The repository retains Python source, configurations, tests, data and experiment
+receipts, model artifacts, eight report figures in PNG/SVG, a research report,
+technical documentation, and LinkedIn material. The release package is designed
+to add the final presentation and release manifest after all source-facing
+artifacts are frozen. Every completed experiment is registered. The post-2019
+test set remains governed-excluded until a separate signed test-evaluation
+decision is made.
 
-## Claim boundary
+## Claim ledger
 
-The intended defensible conclusion is:
+Defensible:
 
-> On a retrospective panel of 12 industry research portfolios and three synthetic
-> Treasury return proxies, a posterior-aware, regime-switching latent-factor
-> scenario generator is evaluated through asset-level tail-risk forecasts and
-> realized out-of-sample decisions; a structural counterfactual extension is
-> validated separately in a semi-synthetic market.
+> CrisisForge is a reproducible public-core study of regime-structured and
+> generative financial scenarios, evaluated through asset-level risk and portfolio
+> decisions. Its validation evidence favors strong conventional baselines on
+> several central-distribution and decision metrics, while a known-SCM extension
+> verifies counterfactual implementation and exposes structural sensitivity.
 
-The project will not claim:
+Not defensible:
 
-> An AI system that predicts crises which have never happened.
-
-Public-core results are not investability or live-trading evidence, and
-conditional/stress scenarios from the observed panel are not labeled causal
-counterfactuals.
+> CrisisForge predicts unseen crises, proves that generative AI beats traditional
+> risk models, identifies the causal effect of monetary policy in real markets, or
+> demonstrates a deployable trading advantage.

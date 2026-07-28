@@ -69,9 +69,7 @@ def test_kupiec_and_brier_outputs_are_valid() -> None:
 
 
 def test_christoffersen_tests_return_finite_statistics() -> None:
-    violations = np.array(
-        [False, False, True, False, False, False, True, False, False, False]
-    )
+    violations = np.array([False, False, True, False, False, False, True, False, False, False])
     independence = christoffersen_independence_test(violations)
     conditional = christoffersen_conditional_coverage_test(
         violations,

@@ -6,6 +6,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .ipynb_checkpoints/
+work/
 
 # Downloaded data and generated artifacts are reproducible but not versioned.
 data/raw/**

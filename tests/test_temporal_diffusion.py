@@ -91,11 +91,7 @@ def test_training_loss_has_finite_nonzero_gradients() -> None:
     )
     assert torch.isfinite(loss)
     loss.backward()
-    gradients = [
-        parameter.grad
-        for parameter in model.parameters()
-        if parameter.grad is not None
-    ]
+    gradients = [parameter.grad for parameter in model.parameters() if parameter.grad is not None]
     assert gradients
     assert all(torch.isfinite(gradient).all() for gradient in gradients)
     assert any(torch.count_nonzero(gradient) for gradient in gradients)

@@ -140,15 +140,9 @@ def run_paired_comparison(
         receipt_path=stage1_receipt_path,
         output_key="detail",
     )
-    if (
-        stage0_receipt.get("phase0_manifest_sha256")
-        != stage1_receipt.get("phase0_manifest_sha256")
-    ):
+    if stage0_receipt.get("phase0_manifest_sha256") != stage1_receipt.get("phase0_manifest_sha256"):
         raise ValueError("Stage 0 and Stage 1 do not share a Phase 0 manifest")
-    if (
-        stage0_receipt.get("model_matrix_sha256")
-        != stage1_receipt.get("model_matrix_sha256")
-    ):
+    if stage0_receipt.get("model_matrix_sha256") != stage1_receipt.get("model_matrix_sha256"):
         raise ValueError("Stage 0 and Stage 1 do not share a model matrix")
     confidence = float(configuration["risk"]["confidence_level"])
     stage0 = _add_rowwise_joint_var_es_score(
@@ -179,10 +173,9 @@ def run_paired_comparison(
         if len(merged) != len(stage1) or len(merged) != len(baseline):
             raise ValueError(f"origin mismatch for Stage 0 model {model_id}")
         for metric_number, metric in enumerate(configuration["metrics"]):
-            difference = (
-                merged[f"{metric}_stage1"].to_numpy(dtype=float)
-                - merged[f"{metric}_stage0"].to_numpy(dtype=float)
-            )
+            difference = merged[f"{metric}_stage1"].to_numpy(dtype=float) - merged[
+                f"{metric}_stage0"
+            ].to_numpy(dtype=float)
             interval = paired_block_bootstrap_mean(
                 difference,
                 replications=int(bootstrap["replications"]),
@@ -204,9 +197,7 @@ def run_paired_comparison(
                     "origin_block_length": int(bootstrap["origin_block_length"]),
                     "bootstrap_replications": int(bootstrap["replications"]),
                     **interval,
-                    "directional_interval_favors_stage1": bool(
-                        interval["ci_upper"] < 0.0
-                    ),
+                    "directional_interval_favors_stage1": bool(interval["ci_upper"] < 0.0),
                     "multiplicity_adjusted": False,
                 }
             )
@@ -257,9 +248,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=None)
     args = parser.parse_args()
     project_root = (
-        args.project_root.resolve()
-        if args.project_root is not None
-        else project_root_from_module()
+        args.project_root.resolve() if args.project_root is not None else project_root_from_module()
     )
     receipt = run_paired_comparison(project_root, config_path=args.config)
     print(json.dumps(receipt, indent=2, sort_keys=True))

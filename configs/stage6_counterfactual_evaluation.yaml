@@ -1,9 +1,12 @@
 experiment:
-  id: stage6_semisynthetic_counterfactual_v1
+  id: stage6_semisynthetic_counterfactual_v2
   random_seed: 20260728
   num_paths: 5000
   horizon: 20
   confidence_level: 0.95
+  tail_loss_signs:
+    equity: -1.0
+    volatility: 1.0
 
 policy_intervention:
   active_steps: 5

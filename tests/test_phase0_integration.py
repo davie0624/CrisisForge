@@ -190,9 +190,7 @@ def test_phase0_manifest_excludes_mutable_experiment_registry(tmp_path: Path) ->
         encoding="utf-8",
     )
     run_phase0(tmp_path, refresh=False, allow_network=False)
-    manifest = json.loads(
-        (tmp_path / "artifacts/phase0/manifest.json").read_text(encoding="utf-8")
-    )
+    manifest = json.loads((tmp_path / "artifacts/phase0/manifest.json").read_text(encoding="utf-8"))
     paths = {record["path"] for record in manifest["files"]}
     assert "experiments/registry.csv" not in paths
 
@@ -209,9 +207,7 @@ def _tree_hashes(root: Path, relative_roots: tuple[str, ...]) -> dict[str, str]:
 
 
 def _assert_manifest_verifies(root: Path) -> None:
-    manifest = json.loads(
-        (root / "artifacts/phase0/manifest.json").read_text(encoding="utf-8")
-    )
+    manifest = json.loads((root / "artifacts/phase0/manifest.json").read_text(encoding="utf-8"))
     for record in manifest["files"]:
         path = root / record["path"]
         assert path.exists(), record["path"]
@@ -278,9 +274,7 @@ def test_refresh_failure_rolls_back_raw_and_all_published_outputs(
         monkeypatch.setattr(
             phase0_pipeline,
             "write_manifest",
-            lambda *args, **kwargs: (_ for _ in ()).throw(
-                RuntimeError("manifest failure")
-            ),
+            lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("manifest failure")),
         )
 
     with pytest.raises(RuntimeError, match=f"{failure_point} failure"):

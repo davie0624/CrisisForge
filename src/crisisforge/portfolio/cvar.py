@@ -227,15 +227,11 @@ def _solve_cvar_lp(
 
     objective = np.zeros(variable_count, dtype=float)
     objective[eta_index] = 1.0
-    objective[excess_slice] = 1.0 / (
-        scenarios * (1.0 - validated.confidence_level)
-    )
+    objective[excess_slice] = 1.0 / (scenarios * (1.0 - validated.confidence_level))
     if turnover_slice is not None:
         objective[turnover_slice] = validated.transaction_cost_rates
     if robust_epigraph_index is not None:
-        objective[robust_epigraph_index] = (
-            wasserstein_radius / (1.0 - validated.confidence_level)
-        )
+        objective[robust_epigraph_index] = wasserstein_radius / (1.0 - validated.confidence_level)
 
     inequality_rows: list[np.ndarray] = []
     inequality_rhs: list[float] = []
@@ -291,8 +287,7 @@ def _solve_cvar_lp(
     equality[0, weight_slice] = 1.0
 
     bounds: list[tuple[float | None, float | None]] = [
-        (float(validated.lower_bounds[j]), float(validated.upper_bounds[j]))
-        for j in range(assets)
+        (float(validated.lower_bounds[j]), float(validated.upper_bounds[j])) for j in range(assets)
     ]
     bounds.append((None, None))
     bounds.extend([(0.0, None)] * scenarios)
@@ -313,8 +308,7 @@ def _solve_cvar_lp(
     diagnostics = _solver_diagnostics(result)
     if not result.success:
         raise PortfolioOptimizationError(
-            "CVaR linear program failed "
-            f"(status={diagnostics.status}): {diagnostics.message}"
+            f"CVaR linear program failed (status={diagnostics.status}): {diagnostics.message}"
         )
 
     solution = np.asarray(result.x, dtype=float)
@@ -322,14 +316,10 @@ def _solve_cvar_lp(
     eta = float(solution[eta_index])
     losses = -returns @ weights
     empirical_cvar = float(
-        eta
-        + np.maximum(losses - eta, 0.0).sum()
-        / (scenarios * (1.0 - validated.confidence_level))
+        eta + np.maximum(losses - eta, 0.0).sum() / (scenarios * (1.0 - validated.confidence_level))
     )
     robust_penalty = float(
-        wasserstein_radius
-        * np.max(np.abs(weights))
-        / (1.0 - validated.confidence_level)
+        wasserstein_radius * np.max(np.abs(weights)) / (1.0 - validated.confidence_level)
     )
     if validated.previous_weights is None:
         l1_turnover = 0.0
@@ -337,9 +327,7 @@ def _solve_cvar_lp(
     else:
         absolute_trade = np.abs(weights - validated.previous_weights)
         l1_turnover = float(absolute_trade.sum())
-        transaction_cost = float(
-            np.dot(validated.transaction_cost_rates, absolute_trade)
-        )
+        transaction_cost = float(np.dot(validated.transaction_cost_rates, absolute_trade))
     decomposed_objective = empirical_cvar + robust_penalty + transaction_cost
 
     return CVaRPortfolioResult(

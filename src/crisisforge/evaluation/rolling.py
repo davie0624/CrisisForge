@@ -78,12 +78,8 @@ def build_generator(specification: dict[str, Any]) -> Any:
         "filtered_historical": lambda: EWMFilteredHistoricalGenerator(
             decay=float(specification["decay"])
         ),
-        "gaussian": lambda: GaussianScenarioGenerator(
-            shrinkage=float(specification["shrinkage"])
-        ),
-        "student_t": lambda: StudentTScenarioGenerator(
-            shrinkage=float(specification["shrinkage"])
-        ),
+        "gaussian": lambda: GaussianScenarioGenerator(shrinkage=float(specification["shrinkage"])),
+        "student_t": lambda: StudentTScenarioGenerator(shrinkage=float(specification["shrinkage"])),
         "student_t_copula": lambda: StudentTCopulaScenarioGenerator(
             degrees_of_freedom=float(specification["degrees_of_freedom"]),
             shrinkage=float(specification["shrinkage"]),
@@ -191,9 +187,7 @@ def run_stage0_baselines(
                 0,
                 origin_position - int(forecast["training_lookback"]) + 1,
             )
-            training = returns.iloc[
-                training_start : origin_position + 1
-            ].to_numpy()
+            training = returns.iloc[training_start : origin_position + 1].to_numpy()
             actual_path = returns.iloc[
                 origin_position + 1 : origin_position + 1 + horizon
             ].to_numpy()
@@ -233,12 +227,10 @@ def run_stage0_baselines(
                 records.append(
                     {
                         "model_id": model_id,
-                        "origin_date": returns.index[
-                            origin_position
-                        ].date().isoformat(),
-                        "horizon_end_date": returns.index[
-                            origin_position + horizon
-                        ].date().isoformat(),
+                        "origin_date": returns.index[origin_position].date().isoformat(),
+                        "horizon_end_date": returns.index[origin_position + horizon]
+                        .date()
+                        .isoformat(),
                         "seed": seed,
                         "training_rows": len(training),
                         "energy_score": energy_score(
@@ -262,9 +254,7 @@ def run_stage0_baselines(
                 failures.append(
                     {
                         "model_id": model_id,
-                        "origin_date": returns.index[
-                            origin_position
-                        ].date().isoformat(),
+                        "origin_date": returns.index[origin_position].date().isoformat(),
                         "seed": seed,
                         "error_type": type(exc).__name__,
                         "error": str(exc),
@@ -303,9 +293,7 @@ def run_stage0_baselines(
                 ),
                 "var_violation_rate": float(group["var_violation"].mean()),
                 "kupiec_p_value": float(coverage["p_value"]),
-                "christoffersen_independence_p_value": float(
-                    coverage["p_value_independence"]
-                ),
+                "christoffersen_independence_p_value": float(coverage["p_value_independence"]),
                 "christoffersen_cc_p_value": float(coverage["p_value_cc"]),
                 "co_crash_brier_score": brier_score(
                     group["predicted_co_crash_probability"].to_numpy(),
@@ -361,9 +349,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=None)
     args = parser.parse_args()
     project_root = (
-        args.project_root.resolve()
-        if args.project_root is not None
-        else project_root_from_module()
+        args.project_root.resolve() if args.project_root is not None else project_root_from_module()
     )
     receipt = run_stage0_baselines(
         project_root,

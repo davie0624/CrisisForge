@@ -216,9 +216,7 @@ class ConditionalTemporalDenoiser(nn.Module):
         if past_context.shape[2] != self.context_dim:
             raise ValueError("past_context has an unexpected feature dimension")
         if regime_probabilities.shape != (batch_size, self.regime_dim):
-            raise ValueError(
-                "regime_probabilities must have shape (batch, regime_dim)"
-            )
+            raise ValueError("regime_probabilities must have shape (batch, regime_dim)")
 
         tensors: Sequence[torch.Tensor] = (
             noisy_paths,
@@ -258,9 +256,7 @@ class ConditionalTemporalDenoiser(nn.Module):
             keepdim=True,
         )
         condition = (
-            self.time_projection(
-                self.time_embedding(timesteps).to(dtype=noisy_paths.dtype)
-            )
+            self.time_projection(self.time_embedding(timesteps).to(dtype=noisy_paths.dtype))
             + self.context_projection(self.context_encoder(past_context))
             + self.regime_projection(normalized_regimes)
         )
@@ -318,12 +314,10 @@ class ConditionalTemporalDDPM(nn.Module):
         )
         alphas = 1.0 - betas
         alpha_bars = torch.cumprod(alphas, dim=0)
-        alpha_bars_previous = torch.cat(
-            (torch.ones(1, dtype=alpha_bars.dtype), alpha_bars[:-1])
+        alpha_bars_previous = torch.cat((torch.ones(1, dtype=alpha_bars.dtype), alpha_bars[:-1]))
+        posterior_variance = (betas * (1.0 - alpha_bars_previous) / (1.0 - alpha_bars)).clamp_min(
+            1.0e-20
         )
-        posterior_variance = (
-            betas * (1.0 - alpha_bars_previous) / (1.0 - alpha_bars)
-        ).clamp_min(1.0e-20)
 
         self.register_buffer("betas", betas)
         self.register_buffer("alphas", alphas)
@@ -342,9 +336,7 @@ class ConditionalTemporalDDPM(nn.Module):
     def _validate_paths(self, paths: torch.Tensor, *, name: str) -> None:
         expected = (self.horizon, self.factor_dim)
         if paths.ndim != 3 or paths.shape[1:] != expected:
-            raise ValueError(
-                f"{name} must have shape (batch, {self.horizon}, {self.factor_dim})"
-            )
+            raise ValueError(f"{name} must have shape (batch, {self.horizon}, {self.factor_dim})")
         if paths.device != self.device:
             raise ValueError(f"{name} must be on model device {self.device}")
         if paths.dtype != self.dtype:
@@ -363,9 +355,7 @@ class ConditionalTemporalDDPM(nn.Module):
         if past_context.shape[1] < 1 or past_context.shape[2] != self.context_dim:
             raise ValueError("past_context has an unexpected history or feature dimension")
         if regime_probabilities.shape != (batch_size, self.regime_dim):
-            raise ValueError(
-                "regime_probabilities must have shape (batch, regime_dim)"
-            )
+            raise ValueError("regime_probabilities must have shape (batch, regime_dim)")
         for name, values in (
             ("past_context", past_context),
             ("regime_probabilities", regime_probabilities),
@@ -400,9 +390,7 @@ class ConditionalTemporalDDPM(nn.Module):
             raise ValueError("timesteps must have shape (batch,)")
         if timesteps.device != self.device or timesteps.dtype != torch.long:
             raise ValueError("timesteps must be a long tensor on the model device")
-        if torch.any(timesteps < 0) or torch.any(
-            timesteps >= self.num_diffusion_steps
-        ):
+        if torch.any(timesteps < 0) or torch.any(timesteps >= self.num_diffusion_steps):
             raise ValueError("timesteps fall outside the diffusion schedule")
         alpha_bar = self._extract(self.alpha_bars, timesteps)
         return alpha_bar.sqrt() * clean_paths + (1.0 - alpha_bar).sqrt() * noise
@@ -462,9 +450,7 @@ class ConditionalTemporalDDPM(nn.Module):
             or sample_weights.device != self.device
             or sample_weights.dtype != self.dtype
         ):
-            raise ValueError(
-                "sample_weights must have shape (batch,) and match model device/dtype"
-            )
+            raise ValueError("sample_weights must have shape (batch,) and match model device/dtype")
         if not torch.isfinite(sample_weights).all() or torch.any(sample_weights < 0.0):
             raise ValueError("sample_weights must be finite and non-negative")
         total_weight = sample_weights.sum()
@@ -542,8 +528,7 @@ class ConditionalTemporalDDPM(nn.Module):
                 alpha_bar = self._extract(self.alpha_bars, timesteps)
                 beta = self._extract(self.betas, timesteps)
                 posterior_mean = (
-                    values
-                    - beta * predicted_noise / (1.0 - alpha_bar).sqrt()
+                    values - beta * predicted_noise / (1.0 - alpha_bar).sqrt()
                 ) / alpha.sqrt()
                 if step > 0:
                     transition_noise = torch.randn(

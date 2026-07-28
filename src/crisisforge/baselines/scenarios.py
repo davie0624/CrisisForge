@@ -82,9 +82,7 @@ class MovingBlockBootstrapGenerator:
         output = np.empty((num_scenarios, horizon, assets), dtype=float)
         for scenario in range(num_scenarios):
             starts = rng.integers(0, max_start + 1, size=blocks_needed)
-            blocks = [
-                self.returns_[start : start + self.block_length] for start in starts
-            ]
+            blocks = [self.returns_[start : start + self.block_length] for start in starts]
             output[scenario] = np.concatenate(blocks, axis=0)[:horizon]
         return output
 
@@ -175,11 +173,7 @@ class StudentTScenarioGenerator:
         rng: np.random.Generator,
     ) -> np.ndarray:
         _validate_sample_request(num_scenarios, horizon)
-        if (
-            self.location_ is None
-            or self.shape_ is None
-            or self.fitted_degrees_of_freedom_ is None
-        ):
+        if self.location_ is None or self.shape_ is None or self.fitted_degrees_of_freedom_ is None:
             raise RuntimeError("fit must be called before sample")
         draws = stats.multivariate_t.rvs(
             loc=self.location_,
@@ -236,10 +230,7 @@ class EWMFilteredHistoricalGenerator:
             innovations = self.residuals_[indices]
             observations = np.sqrt(np.maximum(variances, 1e-12)) * innovations
             output[:, step, :] = observations
-            variances = (
-                self.decay * variances
-                + (1.0 - self.decay) * observations**2
-            )
+            variances = self.decay * variances + (1.0 - self.decay) * observations**2
         return _from_model_space(output, self.model_log_returns)
 
 
@@ -268,9 +259,8 @@ class StudentTCopulaScenarioGenerator:
         uniforms = (ranks - 0.5) / sample_size
         latent = stats.t.ppf(uniforms, df=self.degrees_of_freedom)
         correlation = np.atleast_2d(np.corrcoef(latent, rowvar=False))
-        correlation = (
-            (1.0 - self.shrinkage) * correlation
-            + self.shrinkage * np.eye(correlation.shape[0])
+        correlation = (1.0 - self.shrinkage) * correlation + self.shrinkage * np.eye(
+            correlation.shape[0]
         )
         correlation += np.eye(correlation.shape[0]) * 1e-10
         self.sorted_marginals_ = np.sort(values, axis=0)
@@ -298,9 +288,9 @@ class StudentTCopulaScenarioGenerator:
         latent = np.asarray(latent).reshape(total, -1)
         uniforms = stats.t.cdf(latent, df=self.degrees_of_freedom)
         output = np.empty_like(uniforms)
-        probability_grid = (
-            np.arange(len(self.sorted_marginals_), dtype=float) + 0.5
-        ) / len(self.sorted_marginals_)
+        probability_grid = (np.arange(len(self.sorted_marginals_), dtype=float) + 0.5) / len(
+            self.sorted_marginals_
+        )
         for column in range(output.shape[1]):
             output[:, column] = np.interp(
                 uniforms[:, column],
@@ -326,9 +316,7 @@ class VARResidualBootstrapGenerator:
         if self.ridge < 0.0:
             raise ValueError("ridge must be non-negative")
         model_values = _to_model_space(values, self.model_log_returns)
-        design = np.column_stack(
-            [np.ones(len(model_values) - 1), model_values[:-1]]
-        )
+        design = np.column_stack([np.ones(len(model_values) - 1), model_values[:-1]])
         response = model_values[1:]
         penalty = np.eye(design.shape[1]) * self.ridge
         penalty[0, 0] = 0.0
@@ -367,9 +355,7 @@ class VARResidualBootstrapGenerator:
                 size=num_scenarios,
             )
             states = (
-                self.intercept_
-                + states @ self.coefficients_
-                + self.residuals_[residual_indices]
+                self.intercept_ + states @ self.coefficients_ + self.residuals_[residual_indices]
             )
             output[:, step, :] = states
         return _from_model_space(output, self.model_log_returns)

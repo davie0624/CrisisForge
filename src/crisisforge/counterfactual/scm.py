@@ -337,8 +337,7 @@ class RegimeSwitchingSCM:
             regime = factual.regime[:, time]
             policy_mean = (
                 p.policy_ar * previous[:, _INNOVATION_INDEX["policy"]]
-                + p.policy_equity_feedback
-                * previous[:, _INNOVATION_INDEX["equity"]]
+                + p.policy_equity_feedback * previous[:, _INNOVATION_INDEX["equity"]]
                 + _regime_values(p.policy_regime_intercept, regime)
             )
             innovations[:, time, _INNOVATION_INDEX["policy"]] = (
@@ -410,10 +409,13 @@ class RegimeSwitchingSCM:
         innovations = np.asarray(abducted.innovations, dtype=float)
         raw_regimes = np.asarray(abducted.regimes)
         numeric_regimes = np.asarray(raw_regimes, dtype=float)
-        if not np.isfinite(numeric_regimes).all() or not np.equal(
-            numeric_regimes,
-            np.floor(numeric_regimes),
-        ).all():
+        if (
+            not np.isfinite(numeric_regimes).all()
+            or not np.equal(
+                numeric_regimes,
+                np.floor(numeric_regimes),
+            ).all()
+        ):
             raise ValueError("abducted regimes must contain integer labels")
         regimes = numeric_regimes.astype(int)
         initial = np.asarray(abducted.initial_state, dtype=float)
@@ -468,24 +470,19 @@ class RegimeSwitchingSCM:
         intervention: Intervention | None,
     ) -> SCMPaths:
         paths, horizon, _ = innovations.shape
-        values = {
-            variable: np.empty((paths, horizon), dtype=float) for variable in VARIABLES
-        }
+        values = {variable: np.empty((paths, horizon), dtype=float) for variable in VARIABLES}
         p = self.parameters
 
         for time in range(horizon):
             previous = (
                 initial_state
                 if time == 0
-                else np.column_stack(
-                    [values[variable][:, time - 1] for variable in VARIABLES]
-                )
+                else np.column_stack([values[variable][:, time - 1] for variable in VARIABLES])
             )
             regime = regimes[:, time]
             policy = (
                 p.policy_ar * previous[:, _INNOVATION_INDEX["policy"]]
-                + p.policy_equity_feedback
-                * previous[:, _INNOVATION_INDEX["equity"]]
+                + p.policy_equity_feedback * previous[:, _INNOVATION_INDEX["equity"]]
                 + _regime_values(p.policy_regime_intercept, regime)
                 + innovations[:, time, _INNOVATION_INDEX["policy"]]
             )
@@ -529,8 +526,7 @@ class RegimeSwitchingSCM:
                 p.equity_ar * previous[:, _INNOVATION_INDEX["equity"]]
                 - p.equity_credit * credit
                 - p.equity_liquidity * liquidity
-                - p.equity_volatility
-                * previous[:, _INNOVATION_INDEX["volatility"]]
+                - p.equity_volatility * previous[:, _INNOVATION_INDEX["volatility"]]
                 + _regime_values(p.equity_regime_intercept, regime)
                 + innovations[:, time, _INNOVATION_INDEX["equity"]]
             )
@@ -594,10 +590,13 @@ def _validate_exogenous(
     uniforms = np.asarray(exogenous.regime_uniforms, dtype=float)
     raw_initial = np.asarray(exogenous.initial_regimes)
     numeric_initial = np.asarray(raw_initial, dtype=float)
-    if not np.isfinite(numeric_initial).all() or not np.equal(
-        numeric_initial,
-        np.floor(numeric_initial),
-    ).all():
+    if (
+        not np.isfinite(numeric_initial).all()
+        or not np.equal(
+            numeric_initial,
+            np.floor(numeric_initial),
+        ).all()
+    ):
         raise ValueError("initial_regimes must contain integer labels")
     initial = numeric_initial.astype(int)
     if innovations.ndim != 3 or innovations.shape[2] != len(VARIABLES):
@@ -640,12 +639,17 @@ def _validate_paths(paths: SCMPaths, *, regime_count: int) -> None:
 
 
 def _expected_shortfall(losses: np.ndarray, confidence_level: float) -> float:
+    """Integrate the right-continuous empirical quantile above confidence."""
     if not 0.0 < confidence_level < 1.0:
         raise ValueError("confidence_level must lie strictly between zero and one")
     if losses.ndim != 1 or losses.size < 1 or not np.isfinite(losses).all():
         raise ValueError("losses must be a non-empty finite vector")
-    threshold = float(np.quantile(losses, confidence_level, method="higher"))
-    return float(threshold + np.maximum(losses - threshold, 0.0).mean() / (1.0 - confidence_level))
+    values = np.sort(losses)
+    sample_size = len(values)
+    left = np.arange(sample_size, dtype=float) / sample_size
+    right = (np.arange(sample_size, dtype=float) + 1.0) / sample_size
+    weights = np.maximum(right - np.maximum(left, confidence_level), 0.0)
+    return float(np.sum(weights * values) / (1.0 - confidence_level))
 
 
 def estimate_causal_effect(
@@ -659,29 +663,25 @@ def estimate_causal_effect(
 ) -> CausalEffect:
     """Estimate a paired path effect and the change in path-loss ES.
 
-    With ``loss_sign=-1``, lower cumulative equity outcomes are larger losses.
-    The pairing must be created from common exogenous noise.
+    ``loss_sign`` defines which side is adverse: use ``-1`` when lower
+    cumulative outcomes are losses (for example equity), and ``+1`` when
+    higher cumulative outcomes are stresses (for example volatility). The
+    pairing must be created from common exogenous noise.
     """
     factual_values = factual.variable(outcome)
     counterfactual_values = counterfactual.variable(outcome)
     if factual_values.shape != counterfactual_values.shape:
         raise ValueError("factual and counterfactual paths must have the same shape")
-    if not np.isfinite(factual_values).all() or not np.isfinite(
-        counterfactual_values
-    ).all():
+    if not np.isfinite(factual_values).all() or not np.isfinite(counterfactual_values).all():
         raise ValueError("paired outcome paths must be finite")
     if not np.array_equal(factual.regime, counterfactual.regime):
-        raise ValueError(
-            "paired effects require identical exogenous regime paths"
-        )
+        raise ValueError("paired effects require identical exogenous regime paths")
     if not np.array_equal(factual.initial_state, counterfactual.initial_state):
-        raise ValueError(
-            "paired effects require identical initial states"
-        )
+        raise ValueError("paired effects require identical initial states")
     if effect_type not in {"total", "controlled"}:
         raise ValueError("effect_type must be 'total' or 'controlled'")
-    if not np.isfinite(loss_sign):
-        raise ValueError("loss_sign must be finite")
+    if not np.isfinite(loss_sign) or loss_sign == 0.0:
+        raise ValueError("loss_sign must be finite and nonzero")
     difference = counterfactual_values - factual_values
     factual_loss = loss_sign * factual_values.sum(axis=1)
     counterfactual_loss = loss_sign * counterfactual_values.sum(axis=1)

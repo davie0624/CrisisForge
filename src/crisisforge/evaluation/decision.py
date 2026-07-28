@@ -169,22 +169,18 @@ def load_stage1_scenario_archive(
     expected_dates = pd.DatetimeIndex(expected_origin_dates)
     if not origin_dates.equals(expected_dates):
         raise ValueError(
-            "Stage 1 archive origin_dates do not exactly match registered "
-            "validation origins"
+            "Stage 1 archive origin_dates do not exactly match registered validation origins"
         )
 
     asset_columns = tuple(str(value) for value in raw_assets.tolist())
     expected_assets = tuple(expected_asset_columns)
     if asset_columns != expected_assets:
         raise ValueError(
-            "Stage 1 archive asset_columns do not exactly match the model matrix "
-            "in name and order"
+            "Stage 1 archive asset_columns do not exactly match the model matrix in name and order"
         )
     expected_shape = (len(expected_dates), len(expected_assets))
     if scenarios.shape[0] != expected_shape[0] or scenarios.shape[2] != expected_shape[1]:
-        raise ValueError(
-            "Stage 1 scenario dimensions disagree with the registered origins/assets"
-        )
+        raise ValueError("Stage 1 scenario dimensions disagree with the registered origins/assets")
     if scenarios.shape[1] < 2:
         raise ValueError("Stage 1 archive must contain at least two scenarios per origin")
     return Stage1ScenarioArchive(
@@ -304,9 +300,7 @@ def summarize_decisions(
                 "total_l1_turnover": float(ordered["l1_turnover"].sum()),
                 "mean_transaction_cost": float(ordered["transaction_cost"].mean()),
                 "total_transaction_cost": float(ordered["transaction_cost"].sum()),
-                "worst_block_origin_date": str(
-                    ordered.iloc[worst_index]["origin_date"]
-                ),
+                "worst_block_origin_date": str(ordered.iloc[worst_index]["origin_date"]),
                 "worst_block_net_return": float(net[worst_index]),
             }
         )
@@ -508,14 +502,11 @@ def run_decision_evaluation(
         raise ValueError("maximum_position is incompatible with full investment")
 
     registered_radii = [
-        float(value)
-        for value in robustness["candidate_radii"]
-        if float(value) > 0.0
+        float(value) for value in robustness["candidate_radii"] if float(value) > 0.0
     ]
     strategies = _registered_strategies(registered_radii)
     previous_holdings = {
-        specification["strategy_id"]: equal_weights.copy()
-        for specification in strategies
+        specification["strategy_id"]: equal_weights.copy() for specification in strategies
     }
     decision_rows: list[dict[str, Any]] = []
     weight_rows: list[dict[str, Any]] = []
@@ -529,9 +520,7 @@ def run_decision_evaluation(
             returns,
             origin_date=origin_date,
             horizon=horizon,
-            lookback_observations=int(
-                forecast["historical_lookback_observations"]
-            ),
+            lookback_observations=int(forecast["historical_lookback_observations"]),
         )
         minimum_historical = int(forecast["minimum_historical_scenarios"])
         if len(historical) < minimum_historical:
@@ -539,9 +528,9 @@ def run_decision_evaluation(
                 f"only {len(historical)} historical scenarios at {origin_date}; "
                 f"minimum is {minimum_historical}"
             )
-        actual_path = returns.iloc[
-            origin_position + 1 : origin_position + 1 + horizon
-        ].to_numpy(dtype=float)
+        actual_path = returns.iloc[origin_position + 1 : origin_position + 1 + horizon].to_numpy(
+            dtype=float
+        )
         actual_cumulative = np.prod(1.0 + actual_path, axis=0) - 1.0
 
         for specification in strategies:
@@ -575,9 +564,7 @@ def run_decision_evaluation(
                     solver_result.transaction_cost,
                     atol=1e-10,
                 ):
-                    raise AssertionError(
-                        "solver and realized transaction-cost arithmetic disagree"
-                    )
+                    raise AssertionError("solver and realized transaction-cost arithmetic disagree")
                 forecast_losses = portfolio_losses(decision_scenarios, weights)
                 forecast_losses = forecast_losses + realized.transaction_cost
                 decision_rows.append(
@@ -634,9 +621,7 @@ def run_decision_evaluation(
                             "absolute_trade": float(
                                 abs(weights[asset_number] - previous[asset_number])
                             ),
-                            "end_drifted_weight": float(
-                                realized.end_drifted_weights[asset_number]
-                            ),
+                            "end_drifted_weight": float(realized.end_drifted_weights[asset_number]),
                         }
                     )
                 previous_holdings[strategy_id] = realized.end_drifted_weights
@@ -705,9 +690,7 @@ def run_decision_evaluation(
             "stage1_run_receipt": hash_file(stage1_receipt_path),
         },
         "git": git_state(project_root),
-        "registered_wasserstein_radius_grid": [
-            float(value) for value in registered_radii
-        ],
+        "registered_wasserstein_radius_grid": [float(value) for value in registered_radii],
         "outputs": output_hashes(project_root, persisted_outputs),
     }
     (output_root / "run_receipt.json").write_text(
@@ -725,9 +708,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=None)
     args = parser.parse_args()
     project_root = (
-        args.project_root.resolve()
-        if args.project_root is not None
-        else project_root_from_module()
+        args.project_root.resolve() if args.project_root is not None else project_root_from_module()
     )
     config_path = args.config.resolve() if args.config is not None else None
     receipt = run_decision_evaluation(project_root, config_path=config_path)
