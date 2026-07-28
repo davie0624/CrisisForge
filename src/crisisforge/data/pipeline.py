@@ -904,9 +904,6 @@ def _persist_phase0_run(
     for directory_name in (
         "configs",
         "docs",
-        "experiments",
-        "linkedin",
-        "notebooks",
         "reports",
         "scripts",
         "slides",

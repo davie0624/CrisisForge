@@ -1,8 +1,8 @@
 """Build and validate the polished CrisisForge technical-report PDF.
 
-The report source remains Markdown. This script converts the registered research
+The report source remains Markdown. This script converts the research
 text and figures into a publication-style PDF, then performs structural checks.
-Visual page rendering is handled separately with Poppler during release QA.
+Visual page rendering is handled separately with Poppler.
 """
 
 from __future__ import annotations
@@ -341,9 +341,9 @@ def draw_cover(canvas: object, doc: BaseDocTemplate) -> None:
     canvas.line(24 * mm, 29 * mm, width - 24 * mm, 29 * mm)
 
     chip_specs = [
-        ("PUBLIC-CORE VALIDATION", 24 * mm, 37 * mm, 48 * mm),
-        ("SEALED TEST", 76 * mm, 37 * mm, 30 * mm),
-        ("NEGATIVE RESULTS RETAINED", 110 * mm, 37 * mm, 61 * mm),
+        ("VALIDATION STUDY", 24 * mm, 37 * mm, 42 * mm),
+        ("POST-2019 HOLDOUT", 70 * mm, 37 * mm, 42 * mm),
+        ("OPEN-SOURCE PYTHON", 116 * mm, 37 * mm, 47 * mm),
     ]
     canvas.setFont("Arial-Bold", 6.7)
     for label, x, y, chip_width in chip_specs:
@@ -371,7 +371,7 @@ def draw_body(canvas: object, doc: CrisisForgeDocTemplate) -> None:
     canvas.line(20 * mm, 15 * mm, width - 20 * mm, 15 * mm)
     canvas.setFillColor(MUTED)
     canvas.setFont("Arial", 7)
-    canvas.drawString(20 * mm, 10.7 * mm, "Public-core validation release v0.3.0")
+    canvas.drawString(20 * mm, 10.7 * mm, "CrisisForge research project v0.3.0")
     canvas.drawRightString(width - 20 * mm, 10.7 * mm, f"{doc.page}")
     canvas.restoreState()
 
@@ -838,8 +838,8 @@ def reference_flowables(styles: dict[str, ParagraphStyle]) -> list[Flowable]:
         Spacer(1, 7),
         Paragraph(
             "Primary and archival sources cited in the report. Publication status and "
-            "claim boundaries are documented in docs/literature_review.md. URLs were "
-            "verified for the 28 July 2026 public-core release.",
+            "the limits of the current evidence are discussed in "
+            "docs/literature_review.md. URLs were last checked on 28 July 2026.",
             styles["body"],
         ),
     ]
@@ -865,12 +865,11 @@ def reference_flowables(styles: dict[str, ParagraphStyle]) -> list[Flowable]:
     )
     flowables.extend(
         [
-            Paragraph("Release note", styles["h2"]),
+            Paragraph("Reproducibility note", styles["h2"]),
             Paragraph(
-                "This PDF is a presentation layer over the registered Markdown report. "
-                "The Python source, exact configurations, experiment receipts, lockfile, "
-                "and machine-readable artifacts remain the authoritative reproducibility "
-                "record. No post-2019 model evaluation is introduced by this document.",
+                "This PDF is generated from the Markdown report in the repository. "
+                "The Python source, configurations, and lockfile provide the reproducible "
+                "implementation. No post-2019 model evaluation is reported here.",
                 styles["body"],
             ),
         ]
@@ -921,7 +920,7 @@ def build_pdf(source: Path, output: Path) -> None:
         bottomMargin=bottom_margin,
         title="CrisisForge: Decision-Focused Market Simulation under Regime Shifts",
         author="康智雄",
-        subject="Public-core validation technical research report v0.3.0",
+        subject="CrisisForge technical research report v0.3.0",
         creator="CrisisForge Python report builder",
     )
     doc.addPageTemplates(
@@ -948,7 +947,7 @@ def build_pdf(source: Path, output: Path) -> None:
             styles["cover_subtitle"],
         ),
         Paragraph(
-            "Technical research report<br/>Public-core validation release v0.3.0<br/>28 July 2026",
+            "Technical research report<br/>Independent research project v0.3.0<br/>28 July 2026",
             styles["cover_meta"],
         ),
         NextPageTemplate("Body"),

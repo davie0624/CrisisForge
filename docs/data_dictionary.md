@@ -532,14 +532,11 @@ records run mode (`refresh`, `online-cache`, or `offline`), status, row/column
 counts, split counts, warnings, failed gates, Python/platform/package versions, Git
 commit when available, and the manifest path, SHA-256, and file count.
 
-The completed experiments are bound to the content-addressed Phase 0 snapshot
-`f051ec35236a481858b67c5b1e7136f1698036832f427efba521dbf3fcd36d70`
-at clean commit `b6891133bdb6b96e1e23c6bea3bd033ea9685c7c`. That manifest is
-preserved and must not be overwritten after downstream runs. Final documentation,
-figures, quality-assurance receipts, and release files are bound separately by
-`artifacts/release/release_manifest.json`. A future data refresh creates a new
-Phase 0 lineage and requires new dependent experiments rather than relabeling the
-existing evidence.
+The completed experiments are tied to the content-addressed Phase 0 snapshot
+`f051ec35236a481858b67c5b1e7136f1698036832f427efba521dbf3fcd36d70`.
+That manifest is preserved locally and must not be overwritten after downstream
+runs. A future data refresh creates a new Phase 0 lineage and requires new
+dependent experiments rather than relabeling the existing evidence.
 
 ## 13. Licensed applied-panel substitutions
 

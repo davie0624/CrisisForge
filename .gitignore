@@ -27,7 +27,6 @@ data/.processed-backup-*/
 !data/interim/.gitkeep
 !data/processed/.gitkeep
 artifacts/**
-!artifacts/.gitkeep
 
 # Model checkpoints and experiment trackers.
 checkpoints/
@@ -36,3 +35,7 @@ wandb/
 dist/
 *.key
 *.pem
+
+# Local figure build metadata and editable duplicates.
+reports/figures/*.svg
+reports/figures/figure_manifest.json

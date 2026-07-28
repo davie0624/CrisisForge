@@ -1090,4 +1090,4 @@ CrisisForge:
 - estimates real-world causal effects merely by conditioning on a policy shock.
 
 These boundaries determine both the research protocol and the language used in the
-final report, README, presentation, CV, and LinkedIn material.
+final report, README, and presentation.

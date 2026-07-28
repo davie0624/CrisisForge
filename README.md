@@ -1,241 +1,134 @@
 # CrisisForge
 
-**Decision-Focused Market Simulation under Regime Shifts**
+**Regime-aware market simulation for tail-risk decisions**
 
-CrisisForge is a Python research repository for generating multi-asset stress
-scenarios, reconstructing them at the asset level, measuring tail risk, and testing
-whether statistically sophisticated scenarios improve realized portfolio decisions.
+I built CrisisForge to test a question that generative-finance projects often
+skip: does a more realistic scenario generator actually improve portfolio risk
+decisions?
 
-The implemented system is deliberately multi-stage and auditable:
+The project combines a switching factor model, a small one-shot diffusion pilot,
+asset-level risk reconstruction, CVaR and Wasserstein-DRO decisions, and a
+semi-synthetic counterfactual experiment. The honest result is negative: on the
+current validation sample, simple rolling historical baselines were stronger than
+the complex generator on several important distribution and portfolio metrics.
 
-```text
-availability-lagged current public-source snapshots
-  -> conventional rolling scenario baselines
-  -> MAP / empirical-Bayes switching dynamic factor model
-  -> regime-aware factor-to-asset observation mapping
-  -> one-shot conditional temporal diffusion engineering pilot
-  -> asset-level VaR / Expected Shortfall / co-crash evaluation
-  -> empirical CVaR and Wasserstein-DRO decisions
-  -> separately validated semi-synthetic structural counterfactual extension
-```
+All results reported here are validation results. The post-2019 holdout has not
+been used for model selection or performance claims.
 
-All model code is Python and saved under `src/crisisforge/`; command-line entry
-points, configurations, tests, run receipts, hashes, and generated evidence are
-retained in the repository tree.
+![Paired validation intervals](reports/figures/03_paired_validation_intervals.png)
 
-## Evidence status
+## What I found
 
-Version `0.3.0` contains a complete validation-era research core. Phase 0
-constructs and quality-checks the complete matrix, including the chronological
-test split beginning after 2019-12-31. “Sealed” means those rows are
-governed-excluded from estimator fitting, checkpoint selection, model scoring,
-and portfolio decisions; it does not mean Phase 0 cryptographically hides their
-values. No Stage 0, 1, 2, 3, or 5 result is a test-set claim. Results below are
-validation evidence produced from clean Git commit
-`b6891133bdb6b96e1e23c6bea3bd033ea9685c7c` and Phase 0 manifest:
+- **The simple baselines won.** Filtered historical simulation had the best
+  validation energy score (0.08974), while a 20-observation moving block had the
+  best variogram score (0.53223).
+- **The switching factor model did not improve the central distribution fit.**
+  Its paired energy-score difference versus the moving-block baseline was
+  +0.00450, with a 95% interval of [0.00266, 0.00635]. Lower is better.
+- **Tail-score differences were inconclusive.** The paired joint VaR-ES intervals
+  crossed zero, so the validation evidence does not support a tail-risk advantage.
+- **The diffusion model is only an engineering pilot.** It was evaluated at four
+  forecast origins—enough to test the one-shot pipeline and leakage controls, but
+  not enough to rank it against the other models.
+- **Better-looking scenarios did not produce better portfolio decisions.**
+  Historical CVaR had lower observed validation Expected Shortfall and maximum
+  drawdown than the Stage 1 scenario portfolio.
+- **The counterfactual code works when the structural model is known, but it is
+  sensitive to misspecification.** That extension is a software validation
+  experiment, not evidence about real-world policy effects.
 
-```text
-f051ec35236a481858b67c5b1e7136f1698036832f427efba521dbf3fcd36d70
-```
+The full results, assumptions, and uncertainty analysis are in the
+[research report](reports/crisisforge_research_report.pdf).
 
-Stage 6 v2 was rerun separately from clean implementation commit
-`23a4c9ad20683e5e94f7154472073a96d18f90be`.
+## How it works
 
-The current evidence does **not** show that the complex generator beats simpler
-benchmarks. Preserving that negative result is part of the research design.
+1. Download and align public market and macro-financial data without using future
+   information.
+2. Compare conventional rolling scenario generators, including historical,
+   filtered historical, block-bootstrap, multivariate Student-t, copula, and
+   VAR-based baselines.
+3. Estimate a regime-switching dynamic factor model and soft state probabilities.
+4. Generate complete future factor paths with a one-shot temporal diffusion model.
+5. Map factors back to asset returns through
 
-The complete reader-facing evidence is available in the
-[PDF research report](reports/crisisforge_research_report.pdf) and its
-[Markdown source](reports/crisisforge_research_report.md).
+   $$
+   r_t = B(z_t)f_t + D(z_t)\epsilon_t
+   $$
 
-## Results at a glance
+6. Evaluate asset-level VaR, Expected Shortfall, co-crash probabilities, CVaR
+   portfolios, and Wasserstein-DRO sensitivity.
+7. Test structural interventions separately in a semi-synthetic market where the
+   counterfactual truth is known.
 
-| Evidence | Frozen validation result | Interpretation |
-|---|---:|---|
-| Phase 0 data | 6,465 complete rows; 15 return targets; 10 context variables; 23/23 gates passed | Public retrospective research panel; one source-freshness warning |
-| Best Stage 0 energy score | 0.08974, filtered historical EWMA | Lowest validation energy score among seven baselines |
-| Best Stage 0 variogram score | 0.53223, 20-observation moving block | Lowest validation variogram score among seven baselines |
-| Stage 1 switching factor | Energy 0.09432; variogram 0.58864; joint VaR–ES score -0.94912 | MAP/empirical-Bayes model did not dominate simple baselines |
-| Stage 3 paired evidence | Stage 1 minus moving block energy +0.00450, 95% interval [0.00266, 0.00635] | Lower is better; Stage 1 was worse on this validation comparison |
-| Stage 3 tail-score evidence | All paired joint VaR–ES intervals crossed zero | Tail-score differences were inconclusive |
-| Stage 2 diffusion pilot | 4 reporting origins; tail-weighted energy 0.09168 versus base 0.09205 | Engineering/leakage-control pilot only; no superiority claim permitted |
-| Stage 5 realized ES | Historical CVaR 0.01767; Stage 1 CVaR 0.02074 | Historical scenarios have lower observed validation tail loss; no paired interval was computed |
-| Stage 5 maximum drawdown | Historical CVaR 0.03411; Stage 1 CVaR 0.04782 | Historical CVaR has the smaller observed validation drawdown |
-| Wasserstein-DRO sensitivity | Radii 0.0001–0.001 produced nearly unchanged Stage 1 decisions | No final radius selected; little decision benefit in the pre-specified sensitivity grid |
-| Stage 6 counterfactual | Oracle error \(4.08\times10^{-17}\); misspecified path RMSE 0.0731–0.2782 | Implementation recovered known semi-synthetic truth and exposed specification sensitivity |
+The main implementation lives in [`src/crisisforge`](src/crisisforge).
 
-The Stage 0 and Stage 1 comparison combines different estimation policies: Stage 0
-refits a rolling 1,500-observation window, while Stage 1 estimates parameters on the
-training era and updates only filtered state beliefs. The paired intervals therefore
-do not isolate a causal model-class effect.
+## Data
 
-At every evaluated origin—74 Stage 0/Stage 1 origins and four Stage 2
-origins—the realized co-crash label was zero; generated scenario sets may still
-assign nonzero probabilities. Co-crash Brier scores are retained for completeness
-but cannot assess crisis-event discrimination in this sample.
+The public-data version uses:
 
-## Implemented stage map
+- Kenneth French's value-weighted 12-industry portfolios;
+- official U.S. Treasury daily par yields, converted into transparent bond-return
+  proxies;
+- the New York Fed effective federal funds rate;
+- OFR Financial Stress Index components as validation labels; and
+- backward-looking risk features derived from the return panel.
 
-| Stage | Implemented scope | Main evidence |
-|---|---|---|
-| Phase 0 | Public data acquisition, availability alignment, common-endpoint targets, chronological splits, quality and provenance | `artifacts/phase0/` |
-| Stage 0 | Seven rolling conventional scenario baselines and asset-level proper/tail scores | `artifacts/stage0_baselines/` |
-| Stage 1 | Four-factor PCA representation, four-state Gaussian HMM fitted by MAP/regularized EM, regime-specific VAR(1), and a state-dependent map in \(y_t=\log(1+r_t)\) space followed by \(r_t=\operatorname{expm1}(y_t)\) | `artifacts/stage1_switching_factor/` |
-| Stage 2 | Small one-shot conditional temporal DDPM pilot with base and tail-weighted checkpoints | `artifacts/stage2_public_core_pilot/` |
-| Stage 3 | Paired circular moving-block bootstrap intervals for Stage 1 versus Stage 0 | `artifacts/stage3_comparison/` |
-| Stage 4 | Tail weighting and observation mapping are integrated upstream; POT/GPD and rolling conformal utilities are implemented and tested but not integrated into an empirical runner | No standalone Stage 4 run |
-| Stage 5 | Equal-weight, historical CVaR, Stage 1 CVaR, and four Wasserstein-DRO sensitivities | `artifacts/stage5_decisions/` |
-| Stage 6 | Time-unrolled semi-synthetic SCM, paired interventions, outcome-specific tail-loss signs, oracle recovery, and misspecification tests | `artifacts/stage6_counterfactual/` |
+The aligned sample covers 2000-07-05 through 2026-05-29. It contains 15 asset
+return targets and 10 context variables.
 
-Stage 1 failed its confirmatory central-distribution advancement gate; Stage 2 and
-Stage 5 proceeded only as explicitly non-confirmatory engineering and decision
-diagnostics. Stage 1 is not a full Bayesian posterior sampler and does not use MCMC.
-Stage 2 does not propagate a full parameter posterior, and its independently
-simulated future regime path is not guaranteed to be jointly dynamically consistent
-with the generated factor path. These limitations are recorded in configuration
-and receipts.
+Downloaded and row-level derived data are intentionally not stored in Git. The
+pipeline retrieves them from the original publishers, and synthetic fixtures are
+used for tests. See [NOTICE.md](NOTICE.md) and the
+[data dictionary](docs/data_dictionary.md) for source and licensing details.
 
-## Reproduce the project
+## Quick start
 
 Requirements: Python 3.11 and [uv](https://docs.astral.sh/uv/).
-
-From the repository root:
 
 ```bash
 uv sync --extra dev --extra models --extra reporting
 uv run pytest
-uv run ruff check src tests scripts
-```
-
-On a fresh public clone, download new snapshots from the original publishers and
-build Phase 0:
-
-```bash
 uv run crisisforge-phase0 --refresh
 ```
 
-`uv run crisisforge-phase0 --offline` is only for a local evidence checkout that
-already contains the ignored snapshots. Raw and row-level derived data are not
-redistributed in this repository. A refreshed panel can change the manifest and is
-a new evidence release.
+The remaining model and evaluation entry points are listed in
+[`pyproject.toml`](pyproject.toml); each command also supports `--help`.
 
-Run the validation pipeline in dependency order:
+## Repository layout
 
-```bash
-uv run crisisforge-stage0
-uv run crisisforge-stage1
-uv run crisisforge-compare
-uv run crisisforge-stage2
-uv run crisisforge-stage5
-uv run crisisforge-counterfactual
-uv run python scripts/make_figures.py
-uv run python scripts/make_linkedin_assets.py
-uv run python scripts/build_report_artifact.py
+```text
+configs/                 model and evaluation settings
+data/                    local download and processed-data locations
+docs/                    methods, data definitions, and literature review
+reports/                 final report and research figures
+scripts/                 data and report entry points
+slides/                  research presentation
+src/crisisforge/         Python package
+tests/                   unit and integration tests
 ```
 
-Approximate reference runtime is dominated by Stage 1 (about eight minutes on the
-recorded Apple Silicon system). Stage 2 is intentionally a very small CPU pilot.
-Every stage writes an immutable-style local receipt that binds input/config hashes,
-Git state, output hashes, and the sealed-test declaration where applicable.
+## Project material
 
-## Data foundation
-
-The default public track uses:
-
-- Kenneth French's value-weighted 12-industry research portfolios;
-- official U.S. Treasury daily par yields, converted into three transparent
-  duration-convexity Treasury return proxies;
-- New York Fed effective federal funds rate data;
-- OFR Financial Stress Index components as validation-only labels; and
-- five strictly backward-looking risk features derived from the target panel.
-
-The resulting common-endpoint matrix spans 2000-07-05 through 2026-05-29:
-
-- train: 3,367 rows;
-- validation: 1,499 rows; and
-- governed post-2019 holdout: 1,599 rows.
-
-This is a retrospective research panel, not an investable total-return universe or
-live trading feed. The French source ended 60 calendar days before the requested
-2026-07-28 endpoint, which is disclosed as the sole Phase 0 warning.
-The retained public histories are current snapshots that can be revised; they are
-not a point-in-time vintage database. Availability lags prevent same-run
-look-ahead, but revision-specific claims require separately versioned historical
-releases.
-
-FRED/ALFRED are deliberately excluded because the current FRED Terms of Use
-prohibit using FRED Services or Content to develop or train machine-learning,
-deep-learning, or generative-AI software. The public pipeline downloads from
-original publishers. A publication-grade applied extension should substitute
-licensed point-in-time total returns from CRSP/WRDS, Bloomberg, LSEG, FactSet, or
-an equivalent archive.
-
-### Data rights and attribution
-
-CrisisForge publishes reproducible code, documentation, and non-substitutive
-research outputs. It does **not** publish downloaded or normalized row-level source
-data. The project's software license excludes all third-party datasets and provider
-names, marks, seals, and logos.
-
-- **Kenneth R. French 12 Industry Portfolios:** copyrighted by Eugene F. Fama and
-  Kenneth R. French; no open redistribution license was located, so users download
-  the file directly from the official Data Library.
-- **U.S. Treasury yield curve:** official public data listed under CC0 1.0;
-  CrisisForge's bond-return proxies are independently derived and are not official
-  Treasury total-return series.
-- **New York Fed EFFR:** use is subject to the New York Fed Terms of Use and
-  required reference-rate notice; EFFR content is not covered by the CrisisForge
-  software license.
-- **OFR Financial Stress Index:** OFR requests credit; only OFR-published index
-  outputs are used, while the underlying third-party market series are not
-  redistributed.
-
-See [NOTICE.md](NOTICE.md) for exact source links, notices, and limitations.
-
-## Repository guide
-
-- [Research proposal](docs/research_proposal.md)
+- [Research report (PDF)](reports/crisisforge_research_report.pdf)
+- [Research report (Markdown)](reports/crisisforge_research_report.md)
 - [Mathematical formulation](docs/mathematical_formulation.md)
 - [Data dictionary](docs/data_dictionary.md)
 - [Literature review](docs/literature_review.md)
-- [Repository architecture and reproducibility contract](docs/repository_architecture.md)
-- [Experiment registry](experiments/registry.csv)
-- [Figure contracts](reports/figure_contracts.md)
-- [Research report](reports/crisisforge_research_report.md)
-- [PDF research report](reports/crisisforge_research_report.pdf)
 - [Research presentation](slides/crisisforge_research_presentation.pptx)
-- [LinkedIn post](linkedin/linkedin_post.md)
-- [Interview pitch](linkedin/interview_pitch.md)
-- [Research log](docs/research_log/)
 
-Generated data and model artifacts are retained locally but ignored by Git. Source
-code, configuration, tests, documentation, and the experiment registry are
-versioned. Run receipts and cryptographic hashes make local evidence auditable.
+## Limitations
 
-After committing a release candidate, run the fail-closed release checks and create
-the public source archive. The archive intentionally excludes raw data, row-level
-derived data, model checkpoints, and local experiment artifacts:
+- The current evidence is validation-only; it is not a claim about the untouched
+  holdout period.
+- Stage 1 uses MAP/regularized estimation rather than a full Bayesian posterior.
+- The diffusion experiment is deliberately small and does not establish model
+  superiority.
+- The public panel is retrospective and is not an investable total-return universe
+  or live trading feed.
+- The counterfactual extension is validated on a known semi-synthetic system and
+  does not identify causal effects in observed markets.
 
-```bash
-uv run python scripts/run_release_qa.py
-uv run python scripts/build_release_manifest.py
-uv run python scripts/build_release_bundle.py
-```
+Built by [康智雄](https://github.com/davie0624).
 
-## Claim boundaries
-
-CrisisForge does not claim:
-
-- to predict the date or cause of the next financial crisis;
-- that a statistically inferred regime is an observed economic ground truth;
-- that Stage 1 is fully Bayesian;
-- that the diffusion pilot beats conventional baselines;
-- that validation performance is test performance;
-- that robustness around generated samples is robustness to the true
-  data-generating process; or
-- that the semi-synthetic structural experiment identifies real-world policy
-  effects.
-
-Real-market counterfactual outputs, if added later, must be described as
-**model-based structural interventions** unless a separate defensible identification
-design is registered.
+The original CrisisForge software and documentation are released under the
+[MIT License](LICENSE). Third-party data remain subject to their respective terms.
