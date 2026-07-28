@@ -38,6 +38,9 @@ validation evidence produced from clean Git commit
 f051ec35236a481858b67c5b1e7136f1698036832f427efba521dbf3fcd36d70
 ```
 
+Stage 6 v2 was rerun separately from clean implementation commit
+`23a4c9ad20683e5e94f7154472073a96d18f90be`.
+
 The current evidence does **not** show that the complex generator beats simpler
 benchmarks. Preserving that negative result is part of the research design.
 

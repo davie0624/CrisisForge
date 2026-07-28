@@ -3,7 +3,9 @@
 **Experiment:** `stage6_semisynthetic_counterfactual_v2`  
 **Status:** completed  
 **Scope:** semi-synthetic environment with known ground truth only  
-**Release provenance:** final clean-run timestamp and receipt pending
+**Release provenance:** clean implementation commit
+`23a4c9ad20683e5e94f7154472073a96d18f90be`, completed
+`2026-07-28T03:01:54.668005+00:00`
 
 ## Objective and structural design
 
@@ -31,10 +33,10 @@ mediators to identical schedules in both worlds.
 - SCM config: `configs/counterfactual.yaml`, SHA-256
   `dd270e90abf6f884d241b675a4b82fb1bb2180a17a89c82c44bd41bc6dd57b2d`;
 - SCM implementation SHA-256
-  `e5804b40597dc153454483f0f52dbb83a68ffe6e7f72c77b03fff00a100e7ad1`.
+  `d165c2b214571a33319ca20ff27ff987d762112a5c934214a2edf1338f967f70`.
 
-The final release run will bind the clean source commit and completion timestamp.
-This log does not promote an interim dirty-run receipt as release provenance.
+The release run binds the clean source commit and completion timestamp above.
+Its receipt records `git.dirty=false`.
 
 No Phase 0 manifest is an input to this stage because the validation environment
 is fully semi-synthetic. This separation is intentional and prevents known-ground-
@@ -103,5 +105,5 @@ paths from policy through yield, liquidity, and credit in this SCM.
   `d0d486f6e6a487e435fc2478c09a2c84fa60635c5c151954376dcaa7007686e0`;
 - `artifacts/stage6_counterfactual/summary.json`, SHA-256
   `cbdc24b3333f6635c51b4a5d22ec9671baa5174d7f856c053ad0cf2e24b19f78`;
-- `artifacts/stage6_counterfactual/run_receipt.json` will be rebound by the final
-  clean release run.
+- `artifacts/stage6_counterfactual/run_receipt.json`, completed from clean commit
+  `23a4c9ad20683e5e94f7154472073a96d18f90be`.

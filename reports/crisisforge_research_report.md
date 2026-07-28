@@ -133,7 +133,8 @@ The Phase 0 manifest contains 106 governed file records and has SHA-256
 `f051ec35236a481858b67c5b1e7136f1698036832f427efba521dbf3fcd36d70`.
 Stages 0–5 bind that exact snapshot and clean experimental commit
 `b6891133bdb6b96e1e23c6bea3bd033ea9685c7c`; Stage 6 v2 is bound to its
-separately recorded clean implementation commit.
+separately recorded clean implementation commit
+`23a4c9ad20683e5e94f7154472073a96d18f90be`.
 
 ## Conventional time-dependence baselines lead the structured model
 
