@@ -9,7 +9,9 @@ Historical scenarios are reconstructed at each forecast origin from rows whose
 timestamps are no later than that origin.  The actual next-H block is used only
 after target weights have been chosen.  Portfolio turnover uses the explicit
 L1 convention ``sum(abs(w_new - w_previous))`` and transaction costs are
-subtracted once, at the beginning of each holding block.
+an additive linear return charge: ``net_return = gross_return - cost``.  This is
+an auditable proportional-cost approximation, not a multiplicative wealth
+withdrawal, intrablock execution model, or market-impact model.
 """
 
 from __future__ import annotations
@@ -25,8 +27,19 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from crisisforge.config import load_yaml, project_root_from_module
+from crisisforge.config import (
+    load_yaml,
+    project_root_from_module,
+    resolve_config_path,
+)
 from crisisforge.data.validation import hash_file
+from crisisforge.evaluation.provenance import (
+    assert_manifest_binds_file,
+    assert_receipt_binds_output,
+    git_state,
+    output_hashes,
+    read_validation_matrix,
+)
 from crisisforge.evaluation.rolling import _origin_positions, rolling_cumulative_returns
 from crisisforge.portfolio import (
     CVaRPortfolioResult,
@@ -348,6 +361,7 @@ def _solve_strategy(
     equal_weights: np.ndarray,
     previous_weights: np.ndarray,
     confidence_level: float,
+    minimum_position: float,
     maximum_position: float,
     turnover_limit: float,
     transaction_cost_rates: np.ndarray,
@@ -363,9 +377,12 @@ def _solve_strategy(
             raise ValueError("equal-weight rebalance exceeds registered L1 turnover limit")
         if np.max(equal_weights) > maximum_position + 1e-10:
             raise ValueError("equal weights violate registered maximum position")
+        if np.min(equal_weights) < minimum_position - 1e-10:
+            raise ValueError("equal weights violate registered minimum position")
         return equal_weights.copy(), None, scenarios
     solver_arguments = {
         "confidence_level": confidence_level,
+        "lower_bounds": minimum_position,
         "upper_bounds": maximum_position,
         "previous_weights": previous_weights,
         "turnover_limit": turnover_limit,
@@ -390,7 +407,11 @@ def run_decision_evaluation(
     config_path: Path | None = None,
 ) -> dict[str, Any]:
     """Run the registered portfolio comparison on validation origins only."""
-    config_path = config_path or project_root / "configs" / "stage5_decision.yaml"
+    config_path = resolve_config_path(
+        project_root,
+        config_path,
+        default_relative="configs/stage5_decision.yaml",
+    )
     configuration = load_yaml(config_path)
     pipeline_path = project_root / "configs" / "pipeline.yaml"
     pipeline = load_yaml(pipeline_path)
@@ -398,16 +419,24 @@ def run_decision_evaluation(
 
     paths = configuration["paths"]
     matrix_path = project_root / paths["model_matrix"]
+    manifest_path = project_root / paths["phase0_manifest"]
+    portfolio_model_path = project_root / paths["portfolio_model_config"]
     archive_path = project_root / paths["stage1_scenario_archive"]
+    stage1_receipt_path = project_root / paths["stage1_run_receipt"]
     output_root = project_root / paths["output"]
     output_root.mkdir(parents=True, exist_ok=True)
 
     validation_end = pd.Timestamp(pipeline["splits"]["validation_end"])
+    assert_manifest_binds_file(
+        manifest_path=manifest_path,
+        project_root=project_root,
+        file_path=matrix_path,
+    )
     # Row-level filtering prevents test-period asset values from entering memory.
-    matrix = pd.read_parquet(
+    matrix = read_validation_matrix(
         matrix_path,
-        filters=[("date", "<=", validation_end)],
-    ).sort_index()
+        validation_end=validation_end,
+    )
     asset_columns = [column for column in matrix if column.startswith("asset__")]
     returns = matrix[asset_columns]
     if returns.empty or returns.isna().any().any():
@@ -436,20 +465,54 @@ def run_decision_evaluation(
         expected_origin_dates=expected_origin_dates,
         expected_asset_columns=asset_columns,
     )
+    stage1_receipt = assert_receipt_binds_output(
+        receipt_path=stage1_receipt_path,
+        project_root=project_root,
+        output_key="cumulative_scenarios",
+        output_path=archive_path,
+        allowed_statuses={"completed"},
+    )
+    current_manifest_hash = hash_file(manifest_path)
+    current_matrix_hash = hash_file(matrix_path)
+    if stage1_receipt.get("phase0_manifest_sha256") != current_manifest_hash:
+        raise ValueError("Stage 1 receipt does not reference the active Phase 0 manifest")
+    if stage1_receipt.get("model_matrix_sha256") != current_matrix_hash:
+        raise ValueError("Stage 1 receipt does not reference the active model matrix")
 
-    portfolio = configuration["portfolio"]
+    decision_model = load_yaml(portfolio_model_path)
+    portfolio = decision_model["portfolio"]
+    trading = decision_model["trading"]
+    robustness = decision_model["distributional_robustness"]
+    solver = decision_model["solver"]
+    if not bool(portfolio["fully_invested"]) or not bool(portfolio["long_only"]):
+        raise ValueError("Stage 5 public experiment requires long-only full investment")
+    if (
+        robustness["ambiguity_set"] != "one_wasserstein_ball"
+        or robustness["ground_transport_norm"] != "l1"
+        or robustness["dual_portfolio_norm"] != "linfinity"
+        or robustness["support_assumption"] != "unbounded_return_space"
+    ):
+        raise ValueError("registered Wasserstein formulation is unsupported")
+    if trading["turnover_definition"] != "l1":
+        raise ValueError("Stage 5 implements only explicit L1 turnover")
+    if solver["backend"] != "scipy_linprog_highs":
+        raise ValueError("Stage 5 implements only the registered scipy/HiGHS backend")
     confidence = float(portfolio["confidence_level"])
-    maximum_position = float(portfolio["maximum_position"])
-    turnover_limit = float(portfolio["l1_turnover_limit"])
-    cost_rate = float(portfolio["transaction_cost_bps"]) / 10_000.0
+    minimum_position = float(portfolio["lower_position_limit"])
+    maximum_position = float(portfolio["upper_position_limit"])
+    turnover_limit = float(trading["maximum_l1_turnover"])
+    cost_rate = float(trading["proportional_transaction_cost"])
     cost_rates = np.repeat(cost_rate, len(asset_columns))
     equal_weights = np.repeat(1.0 / len(asset_columns), len(asset_columns))
     if maximum_position * len(asset_columns) < 1.0 - 1e-12:
         raise ValueError("maximum_position is incompatible with full investment")
 
-    strategies = _registered_strategies(
-        list(configuration["wasserstein"]["radius_grid"])
-    )
+    registered_radii = [
+        float(value)
+        for value in robustness["candidate_radii"]
+        if float(value) > 0.0
+    ]
+    strategies = _registered_strategies(registered_radii)
     previous_holdings = {
         specification["strategy_id"]: equal_weights.copy()
         for specification in strategies
@@ -457,6 +520,7 @@ def run_decision_evaluation(
     decision_rows: list[dict[str, Any]] = []
     weight_rows: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
+    disabled_strategies: set[str] = set()
     started = time.perf_counter()
     for origin_number, origin_position in enumerate(origins):
         origin_date = returns.index[origin_position]
@@ -482,6 +546,8 @@ def run_decision_evaluation(
 
         for specification in strategies:
             strategy_id = specification["strategy_id"]
+            if strategy_id in disabled_strategies:
+                continue
             previous = previous_holdings[strategy_id].copy()
             try:
                 weights, solver_result, decision_scenarios = _solve_strategy(
@@ -491,6 +557,7 @@ def run_decision_evaluation(
                     equal_weights=equal_weights,
                     previous_weights=previous,
                     confidence_level=confidence,
+                    minimum_position=minimum_position,
                     maximum_position=maximum_position,
                     turnover_limit=turnover_limit,
                     transaction_cost_rates=cost_rates,
@@ -574,6 +641,10 @@ def run_decision_evaluation(
                     )
                 previous_holdings[strategy_id] = realized.end_drifted_weights
             except Exception as exc:
+                # Terminate this strategy's sequence. Continuing with stale
+                # pre-failure holdings would corrupt all later turnover and
+                # transaction-cost arithmetic.
+                disabled_strategies.add(strategy_id)
                 failures.append(
                     {
                         "strategy_id": strategy_id,
@@ -593,13 +664,23 @@ def run_decision_evaluation(
         confidence_level=confidence,
         expected_origins=len(origins),
     )
-    detail.to_csv(output_root / "decision_results.csv", index=False)
-    weights.to_csv(output_root / "weights.csv", index=False)
-    summary.to_csv(output_root / "summary.csv", index=False)
-    (output_root / "failures.json").write_text(
+    detail_path = output_root / "decision_results.csv"
+    weights_path = output_root / "weights.csv"
+    summary_path = output_root / "summary.csv"
+    failures_path = output_root / "failures.json"
+    detail.to_csv(detail_path, index=False)
+    weights.to_csv(weights_path, index=False)
+    summary.to_csv(summary_path, index=False)
+    failures_path.write_text(
         json.dumps(failures, indent=2, sort_keys=True),
         encoding="utf-8",
     )
+    persisted_outputs = {
+        "detail": detail_path,
+        "weights": weights_path,
+        "summary": summary_path,
+        "failures": failures_path,
+    }
 
     receipt = {
         "status": "completed" if not failures else "completed_with_failures",
@@ -617,22 +698,17 @@ def run_decision_evaluation(
         "input_hashes": {
             "config": hash_file(config_path),
             "pipeline_config": hash_file(pipeline_path),
+            "portfolio_model_config": hash_file(portfolio_model_path),
+            "phase0_manifest": hash_file(manifest_path),
             "model_matrix": hash_file(matrix_path),
             "stage1_scenario_archive": hash_file(archive_path),
+            "stage1_run_receipt": hash_file(stage1_receipt_path),
         },
+        "git": git_state(project_root),
         "registered_wasserstein_radius_grid": [
-            float(value) for value in configuration["wasserstein"]["radius_grid"]
+            float(value) for value in registered_radii
         ],
-        "outputs": {
-            "detail": str(
-                (output_root / "decision_results.csv").relative_to(project_root)
-            ),
-            "weights": str((output_root / "weights.csv").relative_to(project_root)),
-            "summary": str((output_root / "summary.csv").relative_to(project_root)),
-            "failures": str(
-                (output_root / "failures.json").relative_to(project_root)
-            ),
-        },
+        "outputs": output_hashes(project_root, persisted_outputs),
     }
     (output_root / "run_receipt.json").write_text(
         json.dumps(receipt, indent=2, sort_keys=True),

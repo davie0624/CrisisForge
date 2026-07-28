@@ -10,8 +10,19 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from crisisforge.config import load_yaml, project_root_from_module
+from crisisforge.config import (
+    display_path,
+    load_yaml,
+    project_root_from_module,
+    resolve_config_path,
+)
 from crisisforge.data.validation import hash_file
+from crisisforge.evaluation.provenance import (
+    assert_manifest_binds_file,
+    git_state,
+    output_hashes,
+    read_validation_matrix,
+)
 from crisisforge.evaluation.rolling import _origin_positions, rolling_cumulative_returns
 from crisisforge.regimes import SwitchingDynamicFactorBaseline
 from crisisforge.risk import (
@@ -142,7 +153,11 @@ def run_stage1_evaluation(
     config_path: Path | None = None,
 ) -> dict[str, Any]:
     """Fit once on training data and evaluate sequentially on validation only."""
-    config_path = config_path or project_root / "configs/stage1_evaluation.yaml"
+    config_path = resolve_config_path(
+        project_root,
+        config_path,
+        default_relative="configs/stage1_evaluation.yaml",
+    )
     evaluation = load_yaml(config_path)
     if evaluation["experiment"]["evaluation_split"] != "validation":
         raise ValueError(
@@ -157,7 +172,15 @@ def run_stage1_evaluation(
     output_root = project_root / evaluation["paths"]["output"]
     output_root.mkdir(parents=True, exist_ok=True)
 
-    matrix = pd.read_parquet(matrix_path).sort_index()
+    model_matrix_sha256 = assert_manifest_binds_file(
+        manifest_path=phase0_manifest_path,
+        project_root=project_root,
+        file_path=matrix_path,
+    )
+    matrix = read_validation_matrix(
+        matrix_path,
+        validation_end=pipeline["splits"]["validation_end"],
+    )
     asset_columns = [column for column in matrix if column.startswith("asset__")]
     returns = matrix[asset_columns]
     if returns.empty or returns.isna().any().any():
@@ -180,7 +203,15 @@ def run_stage1_evaluation(
         "economic_state_names_inferred": False,
         "test_set_opened": False,
     }
-    (output_root / "diagnostics.json").write_text(
+    diagnostics_path = output_root / "diagnostics.json"
+    filtered_path = output_root / "train_filtered_probabilities.parquet"
+    smoothed_path = output_root / "train_smoothed_probabilities.parquet"
+    state_profiles_path = output_root / "state_profiles.csv"
+    detail_path = output_root / "rolling_results.csv"
+    scenarios_path = output_root / "cumulative_scenarios.npz"
+    failures_path = output_root / "failures.json"
+    summary_path = output_root / "summary.json"
+    diagnostics_path.write_text(
         json.dumps(diagnostics, indent=2, sort_keys=True, default=_json_default),
         encoding="utf-8",
     )
@@ -195,10 +226,10 @@ def run_stage1_evaluation(
         index=train.index,
         columns=[f"state_{index}" for index in range(model.n_states)],
     )
-    filtered_frame.to_parquet(output_root / "train_filtered_probabilities.parquet")
-    smoothed_frame.to_parquet(output_root / "train_smoothed_probabilities.parquet")
+    filtered_frame.to_parquet(filtered_path)
+    smoothed_frame.to_parquet(smoothed_path)
     state_profiles = _state_profiles(train, model.smoothed_probabilities_)
-    state_profiles.to_csv(output_root / "state_profiles.csv", index=False)
+    state_profiles.to_csv(state_profiles_path, index=False)
 
     forecast = evaluation["forecast"]
     risk = evaluation["risk"]
@@ -310,14 +341,14 @@ def run_stage1_evaluation(
     detail = pd.DataFrame(records)
     if detail.empty:
         raise RuntimeError("Every Stage 1 validation origin failed")
-    detail.to_csv(output_root / "rolling_results.csv", index=False)
+    detail.to_csv(detail_path, index=False)
     np.savez_compressed(
-        output_root / "cumulative_scenarios.npz",
+        scenarios_path,
         scenarios=np.stack(cumulative_scenario_blocks),
         origin_dates=np.asarray(scenario_origin_dates),
         asset_columns=np.asarray(asset_columns),
     )
-    (output_root / "failures.json").write_text(
+    failures_path.write_text(
         json.dumps(failures, indent=2, sort_keys=True),
         encoding="utf-8",
     )
@@ -355,22 +386,34 @@ def run_stage1_evaluation(
         "fit_seconds": fit_seconds,
         "evaluation_seconds": evaluation_seconds,
     }
-    (output_root / "summary.json").write_text(
+    summary_path.write_text(
         json.dumps(summary, indent=2, sort_keys=True, default=_json_default),
         encoding="utf-8",
     )
+    persisted_outputs = {
+        "diagnostics": diagnostics_path,
+        "train_filtered_probabilities": filtered_path,
+        "train_smoothed_probabilities": smoothed_path,
+        "state_profiles": state_profiles_path,
+        "detail": detail_path,
+        "cumulative_scenarios": scenarios_path,
+        "failures": failures_path,
+        "summary": summary_path,
+    }
 
     receipt = {
         "status": "completed" if not failures else "completed_with_failures",
         "created_at_utc": datetime.now(UTC).isoformat(),
         "experiment_id": evaluation["experiment"]["id"],
-        "evaluation_config": str(config_path.relative_to(project_root)),
+        "evaluation_config": display_path(config_path, project_root=project_root),
         "evaluation_config_sha256": hash_file(config_path),
         "model_config": str(model_config_path.relative_to(project_root)),
         "model_config_sha256": hash_file(model_config_path),
         "phase0_manifest": str(phase0_manifest_path.relative_to(project_root)),
         "phase0_manifest_sha256": hash_file(phase0_manifest_path),
-        "model_matrix_sha256": hash_file(matrix_path),
+        "model_matrix_sha256": model_matrix_sha256,
+        "git": git_state(project_root),
+        "outputs": output_hashes(project_root, persisted_outputs),
         "summary": summary,
     }
     (output_root / "run_receipt.json").write_text(

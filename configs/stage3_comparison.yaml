@@ -1,0 +1,34 @@
+experiment:
+  id: stage3_paired_validation_comparison_v1
+  evaluation_split: validation
+  random_seed: 20260728
+
+bootstrap:
+  replications: 10000
+  origin_block_length: 4
+  confidence_level: 0.95
+
+metrics:
+  - energy_score
+  - variogram_score
+  - joint_var_es_score
+
+risk:
+  confidence_level: 0.95
+
+paths:
+  stage0_detail: artifacts/stage0_baselines/rolling_results.csv
+  stage0_receipt: artifacts/stage0_baselines/run_receipt.json
+  stage1_detail: artifacts/stage1_switching_factor/rolling_results.csv
+  stage1_receipt: artifacts/stage1_switching_factor/run_receipt.json
+  output: artifacts/stage3_comparison
+
+claims_boundary:
+  test_set_opened: false
+  multiplicity_adjusted: false
+  model_class_effect_identified: false
+  note: >-
+    Intervals are exploratory paired validation evidence. Stage 0 refits rolling
+    1,500-observation windows, whereas Stage 1 freezes parameters estimated
+    through 2013 and only updates filtered state beliefs. Differences therefore
+    combine model-class and estimation-policy effects.

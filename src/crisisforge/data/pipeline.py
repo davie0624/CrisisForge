@@ -1619,7 +1619,7 @@ def main() -> None:
     parser.add_argument(
         "--project-root",
         type=Path,
-        default=project_root_from_module(),
+        default=None,
         help="Repository root",
     )
     source_mode = parser.add_mutually_exclusive_group()
@@ -1634,8 +1634,13 @@ def main() -> None:
         help="Require existing raw snapshots and make no network calls",
     )
     args = parser.parse_args()
+    project_root = (
+        args.project_root.resolve()
+        if args.project_root is not None
+        else project_root_from_module()
+    )
     receipt = run_phase0(
-        args.project_root.resolve(),
+        project_root,
         refresh=args.refresh,
         allow_network=not args.offline,
     )

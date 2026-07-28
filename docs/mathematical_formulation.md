@@ -452,8 +452,7 @@ section 5:
 \min_{w,\tau,s_i}
 \quad
 \tau+\frac{1}{(1-\alpha)S}\sum_{i=1}^S s_i
-+\lambda_{\mathrm{to}}\|w-w_{t-1}\|_1
-+\frac{\gamma}{2}\|w\|_2^2
++\sum_j c_j u_j
 \]
 
 subject to:
@@ -466,9 +465,20 @@ s_i\ge-w^\top G_i-\tau,\qquad s_i\ge0,
 \mathbf1^\top w=1,\qquad \ell\le w\le u.
 \]
 
-The ridge term supplies strong convexity and improves weight stability. A
-multistage policy is out of scope until scenario-tree and non-anticipativity
-constraints are added.
+Here \(u_j\ge w_j-w_{t-1,j}\), \(u_j\ge-(w_j-w_{t-1,j})\), and
+\(\sum_j u_j\le\kappa\). The implementation uses explicit L1 turnover and an
+additive linear transaction-cost approximation. For a realized block return
+\(G_{t,H}\),
+
+\[
+R^{\mathrm{net}}_{t,H}
+=w^\top G_{t,H}-\sum_j c_j|w_j-w_{t-1,j}|.
+\]
+
+This is not a multiplicative wealth withdrawal, intrablock execution model, or
+market-impact model. End-of-block risky-asset weights drift according to realized
+gross asset returns before the next rebalance. A multistage policy is out of scope
+until scenario-tree and non-anticipativity constraints are added.
 
 ## 7. Wasserstein-DRO CVaR
 

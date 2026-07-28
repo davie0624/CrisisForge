@@ -63,7 +63,7 @@ evaluation:
 risk:
   confidence_level: 0.95
   co_crash_marginal_quantile: 0.05
-  co_crash_minimum_fraction: 0.50
+  co_crash_minimum_fraction: 0.3333333333333333
 
 paths:
   model_matrix: data/processed/model_matrix.parquet

@@ -29,9 +29,20 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
-from crisisforge.config import load_yaml, project_root_from_module
+from crisisforge.config import (
+    display_path,
+    load_yaml,
+    project_root_from_module,
+    resolve_config_path,
+)
 from crisisforge.data.validation import hash_file
 from crisisforge.diffusion import ConditionalTemporalDDPM
+from crisisforge.evaluation.provenance import (
+    assert_manifest_binds_file,
+    git_state,
+    output_hashes,
+    read_validation_matrix,
+)
 from crisisforge.evaluation.rolling import rolling_cumulative_returns
 from crisisforge.evaluation.stage1 import build_switching_factor_model
 from crisisforge.regimes import SwitchingDynamicFactorBaseline
@@ -641,7 +652,11 @@ def run_stage2_evaluation(
 ) -> dict[str, Any]:
     """Run the explicitly small, sealed-test Stage 2 public-core pilot."""
 
-    config_path = config_path or project_root / "configs/stage2_evaluation.yaml"
+    config_path = resolve_config_path(
+        project_root,
+        config_path,
+        default_relative="configs/stage2_evaluation.yaml",
+    )
     configuration = load_yaml(config_path)
     experiment = configuration["experiment"]
     if experiment["evaluation_split"] != "validation":
@@ -671,15 +686,24 @@ def run_stage2_evaluation(
         "phase0_manifest": manifest_path,
     }
     input_hashes = {
-        key: {"path": str(path.relative_to(project_root)), "sha256": hash_file(path)}
+        key: {
+            "path": display_path(path, project_root=project_root),
+            "sha256": hash_file(path),
+        }
         for key, path in input_paths.items()
     }
     pipeline = load_yaml(pipeline_path)
     stage1_configuration = load_yaml(stage1_config_path)
     registered_stage2 = load_yaml(stage2_model_config_path)
-    matrix = pd.read_parquet(matrix_path).sort_index()
-    if matrix.index.has_duplicates or not matrix.index.is_monotonic_increasing:
-        raise ValueError("model_matrix index must be unique and increasing")
+    assert_manifest_binds_file(
+        manifest_path=manifest_path,
+        project_root=project_root,
+        file_path=matrix_path,
+    )
+    matrix = read_validation_matrix(
+        matrix_path,
+        validation_end=pipeline["splits"]["validation_end"],
+    )
     asset_columns = [column for column in matrix if column.startswith("asset__")]
     macro_columns = [column for column in matrix if column.startswith("macro__")]
     expected_macro = int(configuration["windows"]["expected_macro_feature_count"])
@@ -1144,6 +1168,25 @@ def run_stage2_evaluation(
         json.dumps(diagnostics, indent=2, sort_keys=True, default=_json_default),
         encoding="utf-8",
     )
+    persisted_outputs = {
+        "training_history": output_root / "training_history.csv",
+        "window_boundaries": output_root / "window_boundaries.parquet",
+        "rolling_results": output_root / "rolling_results.csv",
+        "failures": output_root / "failures.json",
+        "summary": output_root / "summary.json",
+        "diagnostics": output_root / "diagnostics.json",
+        "standardizers": output_root / "train_only_standardizers.npz",
+        **{
+            f"checkpoint_{variant}": path
+            for variant, path in variant_checkpoints.items()
+        },
+        **{
+            f"cumulative_asset_scenarios_{variant}": (
+                output_root / f"cumulative_asset_scenarios_{variant}.npz"
+            )
+            for variant in configuration["evaluation"]["variants"]
+        },
+    }
     receipt = {
         "status": "completed" if not failures else "completed_with_failures",
         "created_at_utc": datetime.now(UTC).isoformat(),
@@ -1157,6 +1200,8 @@ def run_stage2_evaluation(
         "standardizer_sha256": hash_file(
             output_root / "train_only_standardizers.npz"
         ),
+        "git": git_state(project_root),
+        "outputs": output_hashes(project_root, persisted_outputs),
         "test_set_opened": False,
         "summary": summary,
     }

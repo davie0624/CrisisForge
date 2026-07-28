@@ -19,8 +19,9 @@ distributional_robustness:
   ambiguity_set: one_wasserstein_ball
   ground_transport_norm: l1
   dual_portfolio_norm: linfinity
-  # Radius is in decimal-return units and must be selected inside each training
-  # fold. It includes both generator misspecification and Monte Carlo error.
+  # Radius is in decimal-return units. In the sealed-test public experiment,
+  # every positive value is reported as a separate validation sensitivity; no
+  # final radius is selected.
   candidate_radii: [0.0, 0.0001, 0.00025, 0.0005, 0.001]
   strong_dual_penalty: "rho * ||w||_infinity / (1 - alpha)"
   support_assumption: unbounded_return_space

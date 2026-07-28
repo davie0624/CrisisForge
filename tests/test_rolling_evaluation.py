@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
+import pytest
 
 from crisisforge.evaluation.rolling import (
+    _origin_positions,
     build_generator,
     rolling_cumulative_returns,
 )
@@ -37,3 +40,16 @@ def test_generator_factory_builds_configured_model() -> None:
         }
     )
     assert generator.block_length == 5
+
+
+def test_registered_origin_builder_rejects_test_split() -> None:
+    dates = pd.date_range("2010-01-04", periods=100, freq="B")
+    with pytest.raises(ValueError, match="test split sealed"):
+        _origin_positions(
+            dates,
+            evaluation_split="test",
+            train_end=dates[39].date().isoformat(),
+            validation_end=dates[79].date().isoformat(),
+            horizon=5,
+            stride=5,
+        )

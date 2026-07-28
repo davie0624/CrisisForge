@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -9,6 +10,7 @@ import yaml
 
 torch = pytest.importorskip("torch")
 
+from crisisforge.data.validation import hash_file  # noqa: E402
 from crisisforge.diffusion import ConditionalTemporalDDPM  # noqa: E402
 from crisisforge.evaluation.stage2 import (  # noqa: E402
     OneShotFactorDataset,
@@ -217,7 +219,21 @@ def test_tiny_full_runner_saves_audited_validation_outputs(tmp_path: Path) -> No
     matrix.to_parquet(matrix_path)
     manifest_path = tmp_path / "artifacts/phase0/manifest.json"
     manifest_path.parent.mkdir(parents=True)
-    manifest_path.write_text('{"synthetic": true}\n', encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "manifest_schema_version": "1.0",
+                "files": [
+                    {
+                        "path": "data/processed/model_matrix.parquet",
+                        "sha256": hash_file(matrix_path),
+                        "bytes": matrix_path.stat().st_size,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     _write_yaml(
         tmp_path / "configs/pipeline.yaml",

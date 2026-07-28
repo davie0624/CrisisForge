@@ -20,6 +20,7 @@ misspecification:
   remove_lagged_equity_feedback: true
 
 paths:
+  model_config: configs/counterfactual.yaml
   output: artifacts/stage6_counterfactual
 
 claims_boundary:

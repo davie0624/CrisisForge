@@ -20,8 +20,18 @@ from crisisforge.baselines import (
     StudentTScenarioGenerator,
     VARResidualBootstrapGenerator,
 )
-from crisisforge.config import load_yaml, project_root_from_module
+from crisisforge.config import (
+    load_yaml,
+    project_root_from_module,
+    resolve_config_path,
+)
 from crisisforge.data.validation import hash_file
+from crisisforge.evaluation.provenance import (
+    assert_manifest_binds_file,
+    git_state,
+    output_hashes,
+    read_validation_matrix,
+)
 from crisisforge.risk import (
     aggregate_path_returns,
     brier_score,
@@ -98,14 +108,13 @@ def _origin_positions(
 ) -> list[int]:
     train_cut = pd.Timestamp(train_end)
     validation_cut = pd.Timestamp(validation_end)
-    if evaluation_split == "validation":
-        start = int(dates.searchsorted(train_cut, side="right") - 1)
-        final_future_date = validation_cut
-    elif evaluation_split == "test":
-        start = int(dates.searchsorted(validation_cut, side="right") - 1)
-        final_future_date = dates[-1]
-    else:
-        raise ValueError("evaluation_split must be 'validation' or 'test'")
+    if evaluation_split != "validation":
+        raise ValueError(
+            "The registered public evaluation keeps the test split sealed; "
+            "evaluation_split must be 'validation'"
+        )
+    start = int(dates.searchsorted(train_cut, side="right") - 1)
+    final_future_date = validation_cut
     positions: list[int] = []
     for position in range(start, len(dates) - horizon, stride):
         future_dates = dates[position + 1 : position + 1 + horizon]
@@ -122,7 +131,11 @@ def run_stage0_baselines(
     *,
     config_path: Path | None = None,
 ) -> dict[str, Any]:
-    config_path = config_path or project_root / "configs" / "stage0_baselines.yaml"
+    config_path = resolve_config_path(
+        project_root,
+        config_path,
+        default_relative="configs/stage0_baselines.yaml",
+    )
     configuration = load_yaml(config_path)
     pipeline = load_yaml(project_root / "configs" / "pipeline.yaml")
     matrix_path = project_root / configuration["paths"]["model_matrix"]
@@ -130,7 +143,17 @@ def run_stage0_baselines(
     output_root = project_root / configuration["paths"]["output"]
     output_root.mkdir(parents=True, exist_ok=True)
 
-    matrix = pd.read_parquet(matrix_path).sort_index()
+    if configuration["experiment"]["evaluation_split"] != "validation":
+        raise ValueError("Stage 0 is validation-only and keeps the test split sealed")
+    model_matrix_sha256 = assert_manifest_binds_file(
+        manifest_path=phase0_manifest_path,
+        project_root=project_root,
+        file_path=matrix_path,
+    )
+    matrix = read_validation_matrix(
+        matrix_path,
+        validation_end=pipeline["splits"]["validation_end"],
+    )
     asset_columns = [column for column in matrix if column.startswith("asset__")]
     returns = matrix[asset_columns]
     if returns.isna().any().any():
@@ -252,7 +275,10 @@ def run_stage0_baselines(
     if detail.empty:
         raise RuntimeError("Every Stage 0 baseline run failed")
     detail = detail.sort_values(["model_id", "origin_date"]).reset_index(drop=True)
-    detail.to_csv(output_root / "rolling_results.csv", index=False)
+    detail_path = output_root / "rolling_results.csv"
+    summary_path = output_root / "summary.csv"
+    failures_path = output_root / "failures.json"
+    detail.to_csv(detail_path, index=False)
     summary_rows: list[dict[str, Any]] = []
     confidence = float(risk["confidence_level"])
     for model_id, group in detail.groupby("model_id", sort=True):
@@ -287,11 +313,16 @@ def run_stage0_baselines(
             }
         )
     summary = pd.DataFrame(summary_rows).sort_values("mean_energy_score")
-    summary.to_csv(output_root / "summary.csv", index=False)
-    (output_root / "failures.json").write_text(
+    summary.to_csv(summary_path, index=False)
+    failures_path.write_text(
         json.dumps(failures, indent=2, sort_keys=True),
         encoding="utf-8",
     )
+    persisted_outputs = {
+        "detail": detail_path,
+        "summary": summary_path,
+        "failures": failures_path,
+    }
 
     receipt = {
         "status": "passed" if not failures else "passed_with_failures",
@@ -304,12 +335,10 @@ def run_stage0_baselines(
         "failed_model_origins": len(failures),
         "elapsed_seconds": time.perf_counter() - start_time,
         "phase0_manifest_sha256": hash_file(phase0_manifest_path),
+        "model_matrix_sha256": model_matrix_sha256,
         "config_sha256": hash_file(config_path),
-        "outputs": {
-            "detail": str((output_root / "rolling_results.csv").relative_to(project_root)),
-            "summary": str((output_root / "summary.csv").relative_to(project_root)),
-            "failures": str((output_root / "failures.json").relative_to(project_root)),
-        },
+        "git": git_state(project_root),
+        "outputs": output_hashes(project_root, persisted_outputs),
     }
     (output_root / "run_receipt.json").write_text(
         json.dumps(receipt, indent=2, sort_keys=True),
@@ -325,13 +354,18 @@ def main() -> None:
     parser.add_argument(
         "--project-root",
         type=Path,
-        default=project_root_from_module(),
+        default=None,
     )
     parser.add_argument("--config", type=Path, default=None)
     args = parser.parse_args()
+    project_root = (
+        args.project_root.resolve()
+        if args.project_root is not None
+        else project_root_from_module()
+    )
     receipt = run_stage0_baselines(
-        args.project_root.resolve(),
-        config_path=args.config.resolve() if args.config else None,
+        project_root,
+        config_path=args.config,
     )
     print(json.dumps(receipt, indent=2, sort_keys=True))
 

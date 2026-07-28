@@ -44,6 +44,7 @@ crisisforge-phase0 = "crisisforge.data.pipeline:main"
 crisisforge-stage0 = "crisisforge.evaluation.rolling:main"
 crisisforge-stage1 = "crisisforge.evaluation.stage1:main"
 crisisforge-stage2 = "crisisforge.evaluation.stage2:main"
+crisisforge-compare = "crisisforge.evaluation.comparison:main"
 crisisforge-stage5 = "crisisforge.evaluation.decision:main"
 crisisforge-counterfactual = "crisisforge.evaluation.counterfactual:main"
 

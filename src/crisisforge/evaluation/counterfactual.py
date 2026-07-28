@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -10,7 +10,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from crisisforge.config import load_yaml, project_root_from_module
+from crisisforge.config import (
+    display_path,
+    load_yaml,
+    project_root_from_module,
+    resolve_config_path,
+)
 from crisisforge.counterfactual import (
     Intervention,
     RegimeSwitchingSCM,
@@ -19,6 +24,7 @@ from crisisforge.counterfactual import (
     evaluate_counterfactual_error,
 )
 from crisisforge.data.validation import hash_file
+from crisisforge.evaluation.provenance import git_state, output_hashes
 
 
 def _constant_schedule(value: float, steps: int) -> dict[int, float]:
@@ -110,17 +116,21 @@ def run_counterfactual_evaluation(
     config_path: Path | None = None,
 ) -> dict[str, Any]:
     """Validate AAP recovery and quantify structural misspecification sensitivity."""
-    config_path = (
-        config_path
-        or project_root / "configs/stage6_counterfactual_evaluation.yaml"
+    config_path = resolve_config_path(
+        project_root,
+        config_path,
+        default_relative="configs/stage6_counterfactual_evaluation.yaml",
     )
     configuration = load_yaml(config_path)
     experiment = configuration["experiment"]
+    model_config_path = project_root / configuration["paths"]["model_config"]
+    model_configuration = load_yaml(model_config_path)
     output_root = project_root / configuration["paths"]["output"]
     output_root.mkdir(parents=True, exist_ok=True)
     confidence = float(experiment["confidence_level"])
 
-    truth = RegimeSwitchingSCM()
+    truth_parameters = SCMParameters(**model_configuration["parameters"])
+    truth = RegimeSwitchingSCM(truth_parameters)
     noise = truth.generate_exogenous(
         num_paths=int(experiment["num_paths"]),
         horizon=int(experiment["horizon"]),
@@ -257,8 +267,11 @@ def run_counterfactual_evaluation(
 
     summary = pd.DataFrame(summary_rows)
     paths = pd.DataFrame(path_rows)
-    summary.to_csv(output_root / "effect_summary.csv", index=False)
-    paths.to_csv(output_root / "mean_effect_paths.csv", index=False)
+    effect_summary_path = output_root / "effect_summary.csv"
+    mean_paths_path = output_root / "mean_effect_paths.csv"
+    summary_path = output_root / "summary.json"
+    summary.to_csv(effect_summary_path, index=False)
+    paths.to_csv(mean_paths_path, index=False)
     oracle_errors = summary.loc[summary["model_id"] == "oracle_aap"]
     maximum_oracle_error = float(
         oracle_errors[["ate_error", "path_rmse", "tail_effect_error"]]
@@ -284,15 +297,27 @@ def run_counterfactual_evaluation(
             "treated and reference worlds hold identical mediator schedules"
         ),
     }
-    (output_root / "summary.json").write_text(
+    summary_path.write_text(
         json.dumps(result_summary, indent=2, sort_keys=True),
         encoding="utf-8",
     )
+    source_path = Path(__file__).resolve().parents[1] / "counterfactual/scm.py"
+    persisted_outputs = {
+        "effect_summary": effect_summary_path,
+        "mean_effect_paths": mean_paths_path,
+        "summary": summary_path,
+    }
     receipt = {
         "status": "completed",
         "created_at_utc": datetime.now(UTC).isoformat(),
-        "config": str(config_path.relative_to(project_root)),
+        "config": display_path(config_path, project_root=project_root),
         "config_sha256": hash_file(config_path),
+        "model_config": display_path(model_config_path, project_root=project_root),
+        "model_config_sha256": hash_file(model_config_path),
+        "scm_source_sha256": hash_file(source_path),
+        "scm_parameters": asdict(truth_parameters),
+        "git": git_state(project_root),
+        "outputs": output_hashes(project_root, persisted_outputs),
         "summary": result_summary,
         "claims_boundary": configuration["claims_boundary"],
     }
